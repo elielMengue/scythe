@@ -79,3 +79,45 @@ class Project:
         @property
         def artifact_count(self):
             return len(self.artifacts)
+@dataclass
+class ScanResult :
+    root_path: Path
+    projects: List[Project] = field(default_factory=list)
+    scan_duration: float = 0.0
+    directories_scanned: int = 0
+    files_scanned: int = 0
+    errors: List[str] = field(default_factory=list)
+    scan_date: datetime = field(default_factory=datetime.now)
+
+    @property
+    def total_projects(self) -> int:
+        return len(self.projects)
+
+    @property
+    def total_artifacts_size(self) -> int:
+        return sum(p.total_artifact_size for p in self.projects)
+
+    @property
+    def total_artifact_size_formatted(self) -> str:
+        from scythe.utils import format_size
+        return format_size(self.total_artifacts_size)
+
+    def get_property_by_type(self, project_type: ProjectType) -> List[Project]:
+        return [p for p in self.projects if p.project_types == project_type]
+
+    def get_summary(self) -> Dict[str, str]:
+        summary = {
+            "total_projects": self.total_projects,
+            "total_artifacts": sum(p.artifact_count for p in self.projects),
+            "total_size_bytes": self.total_artifacts_size,
+            "directories_scanned": self.directories_scanned,
+            "files_scanned": self.files_scanned,
+            "errors": self.errors,
+        }
+
+        for project_type in ProjectType:
+            count = len(self.get_property_by_type(project_type))
+            if count > 0 :
+                summary[f"{project_type.value}_projects"] = count
+
+        return summary
