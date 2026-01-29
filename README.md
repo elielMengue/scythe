@@ -20,7 +20,7 @@ Artifact-Scythe scanne vos répertoires de projets et détecte automatiquement l
 ### Depuis les sources
 
 ```bash
-git clone https://github.com/elielMengue/artifact-scythe.git
+git clone https://github.com/elielMengue/scythe.git
 cd artifact-scythe
 pip install -e .
 ```
@@ -94,8 +94,16 @@ pytest
 Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou une pull request.
 
 
+## ⚠️ Status du Projet
+**Version 0.1.0 - ALPHA**
+Cette version contient uniquement l'infrastructure de base. 
+Les fonctionnalités de scan et nettoyage sont en développement actif.
+
+
+
 ---
 [@elielMengue](https://github.com/elielMengue)
+
 
 
 
