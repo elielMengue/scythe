@@ -1,7 +1,6 @@
 """
 Command Line Interface - Implemented with Click-Rich
 """
-import os
 import click
 from rich.console import Console
 from rich.panel import Panel
@@ -37,7 +36,7 @@ def cli(ctx, verbose, no_log_file):
        display_header()
 
 @cli.command()
-@click.argument('path', type=click.Path(exists=True), default=os.getcwd())
+@click.argument('path', type=click.Path(exists=True), default='.')
 @click.option(
     '--depth',
     '-d',
@@ -62,7 +61,7 @@ def scan(ctx, path, depth):
     console.print("[yellow] Feature Not Implemented [/yellow]")
 
 @cli.command()
-@click.argument('path', type=click.Path(exists=True), default=os.getcwd())
+@click.argument('path', type=click.Path(exists=True), default='.')
 @click.option(
     '--interactive', '-i',
     is_flag=True,

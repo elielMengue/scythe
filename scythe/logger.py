@@ -57,5 +57,5 @@ def setup_logger(name: str, level: int = logging.INFO, log_file: bool = True ) :
 
     return logger
 
-def get_logger():
-    pass
+def get_logger(name: str = "scythe"):
+    return logging.getLogger(name)
