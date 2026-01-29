@@ -64,3 +64,20 @@ class DirectoryScanner :
                 elif marker in files_in_dir:
                     return project_type
         return None
+
+    def get_marker_files(self, directory: Path, project_type: ProjectType) -> List[str]:
+        found_markers = []
+        markers = PROJECT_MARKERS.get(project_type, [])
+
+        try:
+            files_in_dir = {f.name for f in directory.iterdir() if f.is_file()}
+            for marker in markers :
+                if '*' in marker:
+                    extension = marker.replace('*', '')
+                    found_markers.extend([f for f in files_in_dir if f.endswith(extension)])
+                elif marker in files_in_dir:
+                    found_markers.append(marker)
+        except (OSError, PermissionError)
+            pass
+
+        return found_markers
