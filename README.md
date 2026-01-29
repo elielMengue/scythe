@@ -93,14 +93,17 @@ pytest
 
 Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou une pull request.
 
+
 ## ⚠️ Status du Projet
 **Version 0.1.0 - ALPHA**
 Cette version contient uniquement l'infrastructure de base. 
 Les fonctionnalités de scan et nettoyage sont en développement actif.
-##  Auteur
 
-Votre Nom - [@elielMengue](https://github.com/elielMengue)
+
 
 ---
+[@elielMengue](https://github.com/elielMengue)
 
-**Libérez de l'espace disque en quelques secondes ! **
+
+
+
