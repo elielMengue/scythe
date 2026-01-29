@@ -93,10 +93,9 @@ pytest
 
 Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou une pull request.
 
-##  Auteur
-
-Votre Nom - [@elielMengue](https://github.com/elielMengue)
 
 ---
+[@elielMengue](https://github.com/elielMengue)
 
-**Libérez de l'espace disque en quelques secondes ! **
+
+
