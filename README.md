@@ -28,7 +28,7 @@ pip install -e .
 ### Depuis PyPI (à venir)
 
 ```bash
-pip install artifact-scythe
+pip install scythe
 ```
 
 ##  Usage
