@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scythe"
+version = "0.1.0"
+description = "CLI tools for cleaning artifacts and builds"
+readme = "README.md"
+authors = [
+    {name = "Eliel MENGUE", email = "mengueeliel712@gmail.com"}
+]
+license = "MIT"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Build Tools",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.0.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+]
+
+[project.scripts]
+scythe = "scythe.cli:cli"
+
+[project.urls]
+Homepage = "https://github.com/elielMengue/scythe"
+
+# ← AJOUTER CETTE SECTION
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["scythe*"]
+exclude = ["logs*", "tests*", ".venv*"]

@@ -10,7 +10,7 @@ from rich.logging import RichHandler
 
 
 
-def setup_logger(name: str = "scythe", level: int = logging.INFO, log_file: bool = True ) :
+def setup_logger(name: str, level: int = logging.INFO, log_file: bool = True ) :
     """
     Setup logger
     Args :
@@ -27,7 +27,7 @@ def setup_logger(name: str = "scythe", level: int = logging.INFO, log_file: bool
 
     console_handler = RichHandler(
         rich_tracebacks=True,
-        tracebacks_show_locals=True,
+        tracesbacks_show_locals=True,
         show_time=True,
         show_path=True
     )

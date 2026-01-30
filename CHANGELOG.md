@@ -9,3 +9,14 @@
 - Unit tests for CLI 
 - Project documentation
 
+##  [0.1.0] - 2025-01-30
+
+### Changed 
+
+-   setup.py -> pyproject.toml
+
+### Added 
+
+-   Scan Feature
+  - Test for scan and models
+  - 

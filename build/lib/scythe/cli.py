@@ -32,7 +32,7 @@ console = Console()
 def cli(ctx, verbose, no_log_file):
     import logging
     log_level = logging.DEBUG if verbose else logging.INFO
-    logger = setup_logger(name="scythe",level=log_level, log_file=not no_log_file)
+    logger = setup_logger(level=log_level, log_file=not no_log_file)
 
     ctx.ensure_object(dict)
     ctx.obj["logger"] = logger
@@ -53,7 +53,7 @@ def cli(ctx, verbose, no_log_file):
 )
 
 @click.option(
-    '--follow-symblinks',
+    '--follow-symlinks',
     is_flag=True,
     help="Follow symbolics links"
 )
@@ -86,7 +86,7 @@ def scan(ctx, path, depth, follow_symblinks):
             path=scan_path,
             max_depth=depth,
             follow_symlinks=follow_symblinks,
-            progress_callback=update_progress
+            progress_callback=update_progress()
         )
 
     console.print()

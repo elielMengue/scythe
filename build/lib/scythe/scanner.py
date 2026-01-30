@@ -34,7 +34,7 @@ class DirectoryScanner :
         self.root_path = Path(root_path).resolve()
         self.max_depth = max_depth
         self.follow_symlinks = follow_symlinks
-        self.custom_ignores = custom_ignores or set()
+        self.custom_ignores = custom_ignores or Set()
         self.progress_calback = progress_calback
         self.logger = get_logger()
 
