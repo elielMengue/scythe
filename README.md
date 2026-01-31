@@ -95,9 +95,8 @@ Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou un
 
 
 ## ⚠️ Status du Projet
-**Version 0.1.0 - ALPHA**
-Cette version contient uniquement l'infrastructure de base. 
-Les fonctionnalités de scan et nettoyage sont en développement actif.
+**Version 0.2.0**
+Cette version contient le feature scan.
 
 
 
