@@ -62,11 +62,11 @@ class ArtifactInfo :
 @dataclass
 class Project:
         path: Path
-        project_types: ProjectType
+        project_type: ProjectType
         marker_files: List[str] = field(default_factory=list)
         artifacts: List[ArtifactInfo] = field(default_factory=list)
         total_artifact_size: int = 0
-        last_scanned: datetime = field(default_factory=datetime)
+        last_scanned: datetime = field(default_factory=datetime.now)
 
         def __post_init__(self) :
             self.total_artifact_size = sum(a.size_bytes for a in  self.artifacts)
@@ -103,7 +103,7 @@ class ScanResult :
         return format_size(self.total_artifacts_size)
 
     def get_property_by_type(self, project_type: ProjectType) -> List[Project]:
-        return [p for p in self.projects if p.project_types == project_type]
+        return [p for p in self.projects if p.project_type == project_type]
 
     def get_summary(self) -> Dict[str, str]:
         summary = {

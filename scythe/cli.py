@@ -53,12 +53,12 @@ def cli(ctx, verbose, no_log_file):
 )
 
 @click.option(
-    '--follow-symblinks',
+    '--follow-symlinks',
     is_flag=True,
     help="Follow symbolics links"
 )
 @click.pass_context
-def scan(ctx, path, depth, follow_symblinks):
+def scan(ctx, path, depth, follow_symlinks):
     """
         Scan the directory
     """
@@ -85,13 +85,13 @@ def scan(ctx, path, depth, follow_symblinks):
         result = scan_directory(
             path=scan_path,
             max_depth=depth,
-            follow_symlinks=follow_symblinks,
+            follow_symlinks=follow_symlinks,
             progress_callback=update_progress
         )
 
     console.print()
 
-    console.print(f"[bold green]✓ Scan end in {result.scan_duration:.2f}s[/bold green]")
+    console.print(f"[bold green]✓ Scan ends in {result.scan_duration:.2f}s[/bold green]")
 
         #Result format
 
@@ -110,7 +110,7 @@ def scan(ctx, path, depth, follow_symblinks):
                 relative_path = project.path
 
             table.add_row(
-                project.project_types.display_name,
+                project.project_type.display_name,
                 str(relative_path),
                 ", ".join(project.marker_files[:3])
             )
@@ -130,11 +130,11 @@ def scan(ctx, path, depth, follow_symblinks):
 
     if result.errors :
         console.print()
-        console.print("[bold red] Unable, orrors occures [/bold red]")
+        console.print("[bold red] Unable, errors while scanning [/bold red]")
         for error in result.errors[:5] :
             console.print(f"[red]•[/red] {error}")
         if len(result.errors)  > 5:
-            console.print(f" [dim]... and {len(result.errors) - 5} other orrors[/dim]")
+            console.print(f" [dim]... and {len(result.errors) - 5} other errors[/dim]")
 
 
 

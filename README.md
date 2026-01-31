@@ -75,13 +75,13 @@ pip install -r requirements.txt
 ### Lancer les tests
 
 ```bash
-pytest
+pytest -v
 ```
 
 ##  Roadmap
 
 - [x] Phase 1: Configuration & Fondations
-- [ ] Phase 2: Scanner de Répertoires
+- [x] Phase 2: Scanner de Répertoires
 - [ ] Phase 3: Détection d'Artefacts
 - [ ] Phase 4: Interface Utilisateur
 - [ ] Phase 5: Moteur de Nettoyage

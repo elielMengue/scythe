@@ -30,12 +30,12 @@ class DirectoryScanner :
                  max_depth: -1,
                  follow_symlinks: bool = False,
                  custom_ignores: Optional[Set[str]] = None,
-                 progress_calback: Optional[Callable[[str], None]] = None):
+                 progress_callback: Optional[Callable[[str], None]] = None):
         self.root_path = Path(root_path).resolve()
         self.max_depth = max_depth
         self.follow_symlinks = follow_symlinks
         self.custom_ignores = custom_ignores or set()
-        self.progress_calback = progress_calback
+        self.progress_callback = progress_callback
         self.logger = get_logger()
 
         #Stats
@@ -125,7 +125,7 @@ class DirectoryScanner :
         )
 
         self.logger.info(
-            f"Scan Ends in {scan_duration:.2f}s-"
+            f"Scan Ends in {scan_duration:.2f}s - "
             f"{result.total_projects} projects founds"
         )
 
@@ -137,6 +137,7 @@ class DirectoryScanner :
             depth: int,
             parent_has_artifacts: bool = False,) -> List[Project]:
 
+        global project
         projects = []
 
         if self.should_skip_directory(directory, depth):
@@ -144,8 +145,8 @@ class DirectoryScanner :
 
         self.directories_scanned += 1
 
-        if self.progress_calback:
-            self.progress_calback(f"Scanning {directory}")
+        if self.progress_callback:
+            self.progress_callback(f"Scanning {directory}")
 
         project_type = self.detect_project_type(directory)
 
@@ -156,7 +157,7 @@ class DirectoryScanner :
             project = Project(
                 path=directory,
                 project_type=project_type,
-                markers_files=markers_files,
+                marker_files=markers_files,
                 artifacts=[] #Coming Soon TODO
             )
 
@@ -186,7 +187,7 @@ def scan_directory(
         root_path=path,
         max_depth=max_depth,
         follow_symlinks=follow_symlinks,
-        progress_calback=progress_callback
+        progress_callback=progress_callback
     )
 
     return scanner.scan()
