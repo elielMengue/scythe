@@ -114,7 +114,8 @@ def scan(ctx, path, depth, follow_symlinks):
             artifact_count = len(project.artifacts)
             artifact_display = f"{artifact_count}" if artifact_count > 0 else "[dim]0[/dim]"
 
-            size_display = project.total_size_formatted if project.total_size_formatted  > 0 else "[dim]0[/dim]"
+                                                                                          #Convertion à revoir
+            size_display = project.total_size_formatted  if project.total_size_formatted  > str(int(0)) else "[dim]0[/dim]"
 
             table.add_row(
                 project.project_type.display_name,
@@ -136,23 +137,13 @@ def scan(ctx, path, depth, follow_symlinks):
     stats_table.add_row("Repositories scanned", str(result.directories_scanned))
     stats_table.add_row("Files scanned", str(result.files_scanned))
     stats_table.add_row("Detected project", str(result.total_projects))
-    stats_table.add_row("Found artifacts", str(sum(p.artifact_cont for p in result.projects)))
+    stats_table.add_row("Found artifacts", str(sum(p.artifact_count for p in result.projects)))
     stats_table.add_row("Total size", result.total_artifact_size_formatted)
 
     console.print(stats_table)
 
     if result.total_artifacts_size  > 0 :
         console.print()
-
-        console.print("[bold cyan] Artifacts detected : [/bold cyan]")
-        for project in result.projects:
-            if project.artifacts:
-                console.print(f"\n[bold white]{project.path.name}[/bold white] ({project.project_type.display_name}")
-                for artifact in project.artifacts:
-                    console.print(
-                        f" [yellow]•[/yellow] {artifact.artifact_type:<20}"
-                        f"[green] {artifact.size_formatted:>10}[/green]"
-                    )
 
     if result.errors :
         console.print()
