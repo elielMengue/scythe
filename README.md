@@ -82,7 +82,7 @@ pytest -v
 
 - [x] Phase 1: Configuration & Fondations
 - [x] Phase 2: Scanner de Répertoires
-- [ ] Phase 3: Détection d'Artefacts
+- [x] Phase 3: Détection d'Artefacts
 - [ ] Phase 4: Interface Utilisateur
 - [ ] Phase 5: Moteur de Nettoyage
 - [ ] Phase 6: Fonctionnalités Avancées

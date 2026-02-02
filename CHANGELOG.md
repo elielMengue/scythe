@@ -43,11 +43,15 @@
 - DateTime default factory pour éviter les erreurs de mutation
 
 ### Technical
-- Scan avec profondeur configurable (`--depth`)
-- Support des liens symboliques (`--follow-symlinks`)
-- Gestion robuste des erreurs (permissions, chemins invalides)
-- Patterns ignorés (.git, .svn, .idea, etc.)
+- Scan with configurable depth (`--depth`)
+- Erros handling (permissions, chemins invalides)
+- Patterns ignored (.git, .svn, .idea, etc.)
 
 ### Coming Next
-- Détection et calcul des artefacts (node_modules, .venv, target/, etc.) 
+- [x] Detection and calculation of artefacts (node_modules, .venv, target/, etc.)
+
+## [0.2.0] - 2025-02-02
+
+### Added 
+- Artifact detector and size calculation
 
