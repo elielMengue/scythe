@@ -21,7 +21,7 @@ Artifact-Scythe scanne vos répertoires de projets et détecte automatiquement l
 
 ```bash
 git clone https://github.com/elielMengue/scythe.git
-cd artifact-scythe
+cd scythe
 pip install -e .
 ```
 

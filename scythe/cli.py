@@ -120,6 +120,7 @@ def scan(ctx, path, depth, follow_symlinks):
     #Stats
 
     console.print()
+
     stats_table = Table(title="Statistics", box=box.SIMPLE)
     stats_table.add_column("Metric", style="cyan")
     stats_table.add_column("Value", style="green")
@@ -127,6 +128,8 @@ def scan(ctx, path, depth, follow_symlinks):
     stats_table.add_row("Repositories scanned", str(result.directories_scanned))
     stats_table.add_row("Files scanned", str(result.files_scanned))
     stats_table.add_row("Detected project", str(result.total_projects))
+
+    console.print(stats_table)
 
     if result.errors :
         console.print()
