@@ -96,4 +96,43 @@ def display_table_view(result: ScanResult, scan_path: Path) -> None:
     console.print(table)
 
 
+def display_tree_view(result: ScanResult, scan_path: Path) -> None:
+    tree = Tree(
+        f"[bold cyan]{scan_path.name}[/bold cyan]",
+        guide_style="dim"
+    )
 
+    project_by_type = {}
+
+    for project in result.projects :
+        ptype = project.project_type
+        if ptype in project_by_type :
+            project_by_type[ptype] = []
+        project_by_type[ptype].append(project)
+
+    for project_type, projects in project_by_type.items() :
+        type_branch = tree.add(
+            f"[cyan]{project_type.display_name}[/cyan] ({len(projects)} projects) projects"
+        )
+
+        for project in projects :
+            try:
+                relative_path = project.path.relative_to(scan_path)
+            except ValueError :
+                relative_path = project.path
+
+            project_info = f"[white]{relative_path}[/white]"
+
+            if project.artifacts :
+                project_info += f" [yellow]({len(project.artifacts)} artifacts, {project.total_artifact_size})[/yellow]"
+            project_branch = type_branch.add(project_info)
+
+            for artifact in project.artifacts[:5] :
+                project_branch.add(
+                    f"[dim] {artifact.artifact_type}[/dim] [green]{artifact.size_formatted}"
+                )
+
+            if len(project.artifacts) > 5 :
+                project_branch.add(f"[dim] ... and {len(project.artifacts) - 5} more artifacts [/dim]")
+
+    console.print(tree)
