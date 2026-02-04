@@ -1,6 +1,8 @@
 """
 Command Line Interface - Implemented with Click-Rich
 """
+from email.policy import default
+
 import click
 from docutils.utils import relative_path
 from rich.console import Console
@@ -13,6 +15,15 @@ from pathlib import Path
 from scythe import __version__
 from scythe.logger import setup_logger, get_logger
 from scythe.scanner import scan_directory
+from scythe.ui import (
+    display_scan_result,
+    interactive_select_project,
+    confirm_action,
+    progress_bar
+)
+
+from scythe.formatter.formatter import save_report
+
 
 console = Console()
 
@@ -57,8 +68,24 @@ def cli(ctx, verbose, no_log_file):
     is_flag=True,
     help="Follow symbolics links"
 )
+
+@click.option(
+    '--format',
+    type=click.choice(['table', 'tree', 'compact', 'json']),
+    default='table',
+    help='Format the output of the result'
+)
+
+@click.option(
+    '--output', '-o',
+    type=click.Path(),
+    help='Save the report of the result in a file'
+)
+
+@click.option('--no-artifacts', is_flag=True, help='Disable artifacts details output')
+)
 @click.pass_context
-def scan(ctx, path, depth, follow_symlinks):
+def scan(ctx, path, depth, follow_symlinks, format, output, no_artifacts):
     """
         Scan the directory
     """
@@ -70,18 +97,13 @@ def scan(ctx, path, depth, follow_symlinks):
     logger.info(f"Scanning directory: {path}")
     logger.info(f"Maximal Depth: {depth}")
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.desciption]{task.description}"),
-        BarColumn(),
-        TimeElapsedColumn(),
-        console=console
-    ) as progress :
-        task = progress.add_task("[cyan]Scanning ...", total=None)
+    with progress_bar() as progress:
+        task = progress.add_task("[cyan]Scanning...", total=None)
 
         def update_progress(message: str):
             progress.update(task, description=f"[cyan]{message}")
 
+        # Lancer le scan
         result = scan_directory(
             path=scan_path,
             max_depth=depth,
@@ -89,70 +111,25 @@ def scan(ctx, path, depth, follow_symlinks):
             progress_callback=update_progress
         )
 
-    console.print()
 
-    console.print(f"[bold green]✓ Scan ends in {result.scan_duration:.2f}s[/bold green]")
+    if format == 'json':
+        from scythe.formatter.formatter import format_to_json
 
-        #Result format
-
-    table = Table(title="Detected Project", box=box.ROUNDED)
-    table.add_column('Type', style="cyan", no_wrap=True)
-    table.add_column("Path", style="white")
-    table.add_column("Artifacts", style="yellow", justify="right")
-    table.add_column("Size", style="green", justify="right")
-
-
-    if result.total_projects == 0:
-        console.print("[yellow]No project found[/yellow]")
+        console.print(format_to_json(result))
     else:
-        for project in result.projects:
-            try:
-                relative_path = project.path.relative_to(scan_path)
-            except ValueError:
-                relative_path = project.path
+        display_scan_result(
+            result,
+            scan_path,
+            show_artifacts=not no_artifacts,
+            format=format
+        )
 
-            artifact_count = len(project.artifacts)
-            artifact_display = f"{artifact_count}" if artifact_count > 0 else "[dim]0[/dim]"
-
-                                                                                          #Convertion à revoir
-            size_display = project.total_size_formatted  if project.total_size_formatted  > str(int(0)) else "[dim]0[/dim]"
-
-            table.add_row(
-                project.project_type.display_name,
-                str(relative_path),
-                artifact_display,
-                size_display
-            )
-
-        console.print(table)
-
-    #Stats
-
-    console.print()
-
-    stats_table = Table(title="Statistics", box=box.SIMPLE)
-    stats_table.add_column("Metric", style="cyan")
-    stats_table.add_column("Value", style="green")
-
-    stats_table.add_row("Repositories scanned", str(result.directories_scanned))
-    stats_table.add_row("Files scanned", str(result.files_scanned))
-    stats_table.add_row("Detected project", str(result.total_projects))
-    stats_table.add_row("Found artifacts", str(sum(p.artifact_count for p in result.projects)))
-    stats_table.add_row("Total size", result.total_artifact_size_formatted)
-
-    console.print(stats_table)
-
-    if result.total_artifacts_size  > 0 :
-        console.print()
-
-    if result.errors :
-        console.print()
-        console.print("[bold red] Unable, errors while scanning [/bold red]")
-        for error in result.errors[:5] :
-            console.print(f"[red]•[/red] {error}")
-        if len(result.errors)  > 5:
-            console.print(f" [dim]... and {len(result.errors) - 5} other errors[/dim]")
-
+        # Save the report if needed
+    if output:
+        output_path = Path(output)
+        output_format = 'json' if output_path.suffix == '.json' else 'csv'
+        save_report(result, output_path, output_format)
+        console.print(f"\n[green]✓ The report is saved: {output_path}[/green]")
 
 
 
