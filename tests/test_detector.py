@@ -60,7 +60,7 @@ def test_artifact_pattern():
 
 def test_get_artifacts_patterns():
     detector = ArtifactDetector(Path("/test"), ProjectType.PYTHON)
-    patterns = detector.get_artifact_patterns()
+    patterns = detector.get_artifact_pattern()
 
     assert '.venv' in patterns
     assert '__pycache__' in patterns

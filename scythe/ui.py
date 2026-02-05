@@ -4,6 +4,7 @@
 from email.policy import default
 from pathlib import Path
 from typing import List, Optional, Set
+from collections import defaultdict
 
 from docutils.utils import relative_path
 from rich.console import Console
@@ -102,7 +103,7 @@ def display_tree_view(result: ScanResult, scan_path: Path) -> None:
         guide_style="dim"
     )
 
-    project_by_type = {}
+    project_by_type = defaultdict(list)
 
     for project in result.projects :
         ptype = project.project_type

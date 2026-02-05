@@ -20,7 +20,7 @@ def format_to_json(result: ScanResult, pretty: bool = True) -> str:
             "files_scanned": result.files_scanned,
             "total_projects": result.total_projects,
             "total_artifacts": sum(p.artifact_count for p in result.projects),
-            "total_size_bytes": result.total_artifact_size,
+            "total_size_bytes": result.total_artifacts_size,
             "total_size_formatted": result.total_size_formatted
         },
         "projects": [

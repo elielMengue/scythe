@@ -71,7 +71,7 @@ def cli(ctx, verbose, no_log_file):
 
 @click.option(
     '--format',
-    type=click.choice(['table', 'tree', 'compact', 'json']),
+    type=click.Choice(['table', 'tree', 'compact', 'json']),
     default='table',
     help='Format the output of the result'
 )
@@ -83,7 +83,7 @@ def cli(ctx, verbose, no_log_file):
 )
 
 @click.option('--no-artifacts', is_flag=True, help='Disable artifacts details output')
-)
+
 @click.pass_context
 def scan(ctx, path, depth, follow_symlinks, format, output, no_artifacts):
     """
