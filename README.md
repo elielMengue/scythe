@@ -83,7 +83,7 @@ pytest -v
 - [x] Phase 1: Configuration & Fondations
 - [x] Phase 2: Scanner de Répertoires
 - [x] Phase 3: Détection d'Artefacts
-- [ ] Phase 4: Interface Utilisateur
+- [x] Phase 4: Interface Utilisateur
 - [ ] Phase 5: Moteur de Nettoyage
 - [ ] Phase 6: Fonctionnalités Avancées
 - [ ] Phase 7: Tests & Validation
@@ -98,7 +98,8 @@ Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou un
 **Version 0.2.0**
 Cette version contient le feature scan.
 
-
+## Hint 
+**Read** the changelog to see changes as I continue developping from time to time
 
 ---
 [@elielMengue](https://github.com/elielMengue)

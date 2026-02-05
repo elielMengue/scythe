@@ -48,8 +48,8 @@ def display_scan_result(
 
     display_statistics(result)
 
-    if show_artifacts and result.total_artifacts_size > 0:
-        display_artifacts_detail(result)
+    """if show_artifacts and result.total_artifacts_size > 0:
+        display_artifacts_detail(result)"""
 
 def display_table_view(result: ScanResult, scan_path: Path) -> None:
     table = Table(title="Detected Projects", box=box.ROUNDED)
@@ -180,19 +180,19 @@ def display_statistics(result: ScanResult) -> None:
     console.print(stats_table)
 
 
-def display_artifacts_detail(result: ScanResult) -> None:
+"""def display_artifacts_detail(result: ScanResult) -> None:
     console.print()
     console.print(f"[bold cyan]Artifacts found:[/bold cyan]")
 
     for project in result.projects :
         if project.artifacts :
-            console.print(f"\n[bold white]{project.path.name}[/bold white] ({project.project_type.display_name}: ")
+            console.print(f"[bold white]{project.path.name}[/bold white] ({project.project_type.display_name}: ")
             for artifact in project.artifacts :
                 console.print(
                     f"  [yellow]•[/yellow] {artifact.artifact_type:<20} "
                     f"[green]{artifact.size_formatted:>10}[/green]"
                 )
-
+"""
 def display_errors(errors: List[str], max_display: int = 5 ) -> None:
     console.print()
     console.print("[bold red] Errors that occurs : [/bold red]")

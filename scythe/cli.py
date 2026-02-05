@@ -7,9 +7,6 @@ import click
 from docutils.utils import relative_path
 from rich.console import Console
 from rich.panel import Panel
-from rich import box
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
-from rich.table import Table
 from pathlib import Path
 
 from scythe import __version__
