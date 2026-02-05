@@ -48,7 +48,7 @@
 - Patterns ignored (.git, .svn, .idea, etc.)
 
 ### Coming Next
-- [x] Detection and calculation of artefacts (node_modules, .venv, target/, etc.)
+- [x] Detection and calculation of artefacts (node_modules, .venv, target/, etc.) **Done**
 
 ## [0.2.0] - 2025-02-02
 

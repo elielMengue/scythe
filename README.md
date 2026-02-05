@@ -99,7 +99,7 @@ Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou un
 Cette version contient le feature scan.
 
 ## Hint 
-**Read** the changelog to see changes as I continue developping from time to time
+**Read** the [changelog](https://github.com/elielMengue/scythe/blob/main/CHANGELOG.md) to see changes as I continue developping from time to time
 
 ---
 [@elielMengue](https://github.com/elielMengue)

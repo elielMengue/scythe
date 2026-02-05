@@ -4,7 +4,7 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Dict
+from typing import List, Dict, Optional, Any
 from pathlib import Path
 from datetime import datetime
 
@@ -121,3 +121,44 @@ class ScanResult :
                 summary[f"{project_type.value}_projects"] = count
 
         return summary
+
+
+@dataclass
+class CleanResult :
+    """
+    Result of Clean Operations
+    """
+
+    projects_cleaned: List[Project] = field(default_factory=list)
+    artifacts_deleted: int = 0
+    space_freed: int = 0 #bytes
+    errors: List[str] = field(default_factory=list)
+    skipped: List[str] = field(default_factory=list)
+    clean_duration: float = 0.0
+    dry_run: bool = False
+
+    @property
+    def space_freed_formatted(self)-> str:
+        from scythe.utils.utils import format_size
+        return format_size(self.space_freed)
+
+    @property
+    def success_rate(self)-> float:
+        total = self.artifacts_deleted + len(self.errors)
+
+        if total == 0:
+            return 100.0
+        return (self.artifacts_deleted / total) *  100
+
+
+    def get_summary(self)-> Dict[str, Any]:
+        return {
+            "projects_cleaned": len(self.projects_cleaned),
+            "artifacts_deleted": self.artifacts_deleted,
+            "space_freed": self.space_freed,
+            "space_freed_formatted": self.space_freed_formatted,
+            "errors": len(self.errors),
+            "skipped": len(self.skipped),
+            "success_rate": self.success_rate,
+            "dry_run": self.dry_run
+        }
