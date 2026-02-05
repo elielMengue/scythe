@@ -1,12 +1,10 @@
 """
     USER INTERFACE INTERFACE
 """
-from email.policy import default
 from pathlib import Path
-from typing import List, Optional, Set
+from typing import List
 from collections import defaultdict
 
-from docutils.utils import relative_path
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -15,8 +13,8 @@ from rich.tree import Tree
 from rich import box
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
 
-from scythe.models import ScanResult, ProjectType, Project
-from scythe.logger import get_logger
+from scythe.models.models import ScanResult, Project
+from scythe.logger.logger import get_logger
 
 console = Console()
 logger = get_logger()
@@ -260,7 +258,7 @@ def interactive_select_project(
             selected_projects = [projects[i] for i in selected_indices]
 
             total_size = sum(p.total_artifact_size for p in selected_projects)
-            from scythe.utils import format_size
+            from scythe.utils.utils import format_size
 
             console.print()
             console.print(

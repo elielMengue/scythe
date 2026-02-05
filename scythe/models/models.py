@@ -4,7 +4,7 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Dict, Optional
+from typing import List, Dict
 from pathlib import Path
 from datetime import datetime
 
@@ -55,7 +55,7 @@ class ArtifactInfo :
 
         @property
         def size_formatted(self) -> str :
-            from scythe.utils import format_size
+            from scythe.utils.utils import format_size
             return format_size(self.size_bytes)
 
 
@@ -73,7 +73,7 @@ class Project:
 
         @property
         def total_size_formatted(self):
-            from scythe.utils import format_size
+            from scythe.utils.utils import format_size
             return format_size(self.total_artifact_size)
 
         @property
@@ -99,7 +99,7 @@ class ScanResult :
 
     @property
     def total_artifact_size_formatted(self) -> str:
-        from scythe.utils import format_size
+        from scythe.utils.utils import format_size
         return format_size(self.total_artifacts_size)
 
     def get_property_by_type(self, project_type: ProjectType) -> List[Project]:

@@ -3,12 +3,12 @@
 """
 
 from pathlib import Path
-from typing import List, Set, Dict
+from typing import List, Dict
 from datetime import datetime
 
-from scythe.models import ProjectType, ArtifactInfo
-from scythe.utils import calculate_directory_size, is_ignored_path
-from scythe.logger import get_logger
+from scythe.models.models import ProjectType, ArtifactInfo
+from scythe.utils.utils import calculate_directory_size
+from scythe.logger.logger import get_logger
 
 # Artifacts matches project type
 

@@ -4,14 +4,12 @@ Unite testing for UI
 
 import pytest
 from pathlib import Path
-from io import StringIO
 
-from scythe.ui import (
+from scythe.ui.ui import (
     parse_selection,
-    display_scan_result,
-    interactive_select_project
+    display_scan_result
 )
-from scythe.models import ScanResult, Project, ProjectType
+from scythe.models.models import ScanResult
 
 
 def test_parse_selection_all():

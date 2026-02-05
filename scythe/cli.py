@@ -1,21 +1,17 @@
 """
 Command Line Interface - Implemented with Click-Rich
 """
-from email.policy import default
 
 import click
-from docutils.utils import relative_path
 from rich.console import Console
 from rich.panel import Panel
 from pathlib import Path
 
 from scythe import __version__
-from scythe.logger import setup_logger, get_logger
-from scythe.scanner import scan_directory
-from scythe.ui import (
+from scythe.logger.logger import setup_logger
+from scythe.scanner.scanner import scan_directory
+from scythe.ui.ui import (
     display_scan_result,
-    interactive_select_project,
-    confirm_action,
     progress_bar
 )
 

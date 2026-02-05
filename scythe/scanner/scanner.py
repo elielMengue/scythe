@@ -1,18 +1,14 @@
-
-import os
 from pathlib import Path
 from typing import List, Optional, Callable, Set
 import time
 
-from scythe.models import Project, ProjectType, ScanResult, ArtifactInfo
-from scythe.utils import (
-is_ignored_path,
-calculate_directory_size,
-IGNORED_PATTERNS
+from scythe.models.models import Project, ProjectType, ScanResult
+from scythe.utils.utils import (
+is_ignored_path
 )
 
-from scythe.logger import get_logger
-from scythe.detector import detect_artifacts
+from scythe.logger.logger import get_logger
+from scythe.detector.detector import detect_artifacts
 
 PROJECT_MARKERS = {
     ProjectType.NODE: ['package.json', 'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml'],
@@ -171,7 +167,7 @@ class DirectoryScanner :
 
         if artifacts :
             total_size = sum(a.size_bytes for a in artifacts)
-            from scythe.utils import format_size
+            from scythe.utils.utils import format_size
             self.logger.info(
                 f" {len(artifacts)} found artifacts"
                 f" {format_size(total_size)}"

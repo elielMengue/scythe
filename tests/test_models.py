@@ -2,11 +2,10 @@
 Testing Models
 """
 
-import pytest
 from pathlib import Path
 from datetime import datetime
 
-from scythe.models import ProjectType, ArtifactInfo, Project, ScanResult
+from scythe.models.models import ProjectType, ArtifactInfo, Project, ScanResult
 
 
 def test_project_type_enum():

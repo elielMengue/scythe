@@ -95,7 +95,7 @@ Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou un
 
 
 ## ⚠️ Status du Projet
-**Version 0.2.0**
+**Version 0.3.0**
 Cette version contient le feature scan.
 
 ## Hint 

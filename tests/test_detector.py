@@ -6,8 +6,8 @@ import pytest
 from pathlib import Path
 
 
-from scythe.detector import ArtifactDetector, detect_artifacts, ARTIFACT_PATTERNS
-from scythe.models import ProjectType
+from scythe.detector.detector import ArtifactDetector, detect_artifacts, ARTIFACT_PATTERNS
+from scythe.models.models import ProjectType
 
 @pytest.fixture
 def node_project_with_artifact(tmp_path):

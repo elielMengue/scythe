@@ -4,10 +4,9 @@ Unit tests for scanner command
 
 import pytest
 from pathlib import Path
-import tempfile
 
-from scythe.scanner import DirectoryScanner, scan_directory
-from scythe.models import ProjectType
+from scythe.scanner.scanner import DirectoryScanner, scan_directory
+from scythe.models.models import ProjectType
 
 @pytest.fixture
 def test_project_structure(tmp_path):

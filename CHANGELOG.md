@@ -63,3 +63,4 @@
 - Report generation in two formats (csv & json) 
 - Add new option to the cli : command example `scythe scan /project_path --format [tree, table, json]` this helps format the scan result in a better way we want it to.
 `scythe scan /project_path --output report_file` this command will generate a report after the scan complete. Notice that the report file support only two types : **csv** and **json**
+- Release v0.3.0
