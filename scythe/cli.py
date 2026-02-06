@@ -41,6 +41,37 @@ console = Console()
 )
 @click.pass_context
 def cli(ctx, verbose, no_log_file):
+    """
+        Scan directories for build artifacts and project metadata.
+
+        Analyzes the file system to identify project roots (Node.js, Python, Rust, etc.)
+         based on marker files and calculates the potential space reclaimable from
+         their associated artifacts.
+
+        \b
+        Arguments:
+            PATH    Directory to analyze (default: current directory)
+
+        \b
+        Options:
+            --depth, -d        Maximum recursion depth (default: -1, infinite)
+            --follow-symlinks  Follow symbolic links during traversal
+            --verbose, -v      Show detailed logs and hidden project markers
+            --no-log-file      Does not generate a log file
+
+        \b
+        Examples:
+            scythe scan .                       # 1. Standard scan of current folder
+            scythe scan ~/dev --depth 2         # 2. Shallow scan of your dev folder
+            scythe scan /opt --follow-symlinks  # 3. Scan including symlinks
+            scythe scan . --verbose             # 4. Scan with debug logging
+
+        \b
+        Notes:
+            • Does not delete files; use the 'clean' command for removal
+            • Scanning large directories (e.g., /) may require administrative privileges
+            • Use --depth to speed up scanning on very large file systems
+    """
     import logging
     log_level = logging.DEBUG if verbose else logging.INFO
     logger = setup_logger(name="scythe",level=log_level, log_file=not no_log_file)
@@ -134,7 +165,7 @@ def scan(ctx, path, depth, follow_symlinks, format, output, no_artifacts):
 
 
 @cli.command()
-@click.argument('path', type=click.Path(exists=True), default='.')
+@click.argument('path', type=click.Path(exists=True), default='.', metavar='[PATH]')
 @click.option(
     '--interactive', '-i',
     is_flag=True,
@@ -150,7 +181,9 @@ def scan(ctx, path, depth, follow_symlinks, format, output, no_artifacts):
     '--depth', '-d',
     type=int,
     default=-1,
-    help="Maximal depth of scan"
+    metavar='N',
+    help="Maximal depth of scan",
+    show_default=True
 )
 
 @click.option(
@@ -162,13 +195,41 @@ def scan(ctx, path, depth, follow_symlinks, format, output, no_artifacts):
 @click.option(
     '--output', '-o',
     type=click.Path(),
+    metavar='FILE',
     help='Save the report of the clean result in a file'
 )
 
 @click.pass_context
 def clean(ctx, path, interactive, dry_run, depth, force, output):
     """
-        Clean the directory
+        Clean detected build artifacts.
+
+        First scans the directory to identify projects with artifacts,
+        then securely removes them after user confirmation.
+
+        \b
+        Arguments:
+            PATH    Directory to clean (default: current directory)
+
+        \b
+        Operating Modes:
+            --dry-run       Simulation mode (no actual deletion; recommended first)
+            --interactive   Manually select which projects to clean
+            --force         Skip confirmation (useful for automated scripts)
+
+        \b
+        Examples:
+            scythe clean  path_to_project --dry-run              # 1. Preview what would be deleted
+            scythe clean  path_to_project                        # 2. Clean with confirmation
+            scythe clean  path_to_project  --interactive         # 3. Manual selection mode
+            scythe clean  path_to_project  --force               # 4. Clean without confirmation
+            scythe clean  path_to_project  -o report.json        # 5. Export results to a report
+
+        \b
+        Warning:
+            • Deletion is PERMANENT (files are not moved to the trash)
+            • Always perform a --dry-run first to avoid accidental data loss
+            • Ensure that projects are not currently open or in use by other processes
     """
     global output_path
     logger = ctx.obj["logger"]
@@ -321,24 +382,26 @@ def clean(ctx, path, interactive, dry_run, depth, force, output):
 def info(ctx):
     console = ctx.obj["console"]
     info_text = f"""
-        [bold cyan]Artifact-Scythe v{__version__}[/bold cyan]
-    
-    [yellow]Un outil CLI pour nettoyer les artefacts de build[/yellow]
-    
-    [bold]Types de projets supportés:[/bold]
-    • Node.js (node_modules, dist, build)
-    • Python (.venv, __pycache__, .pytest_cache)
-    • Rust (target/)
-    • Java/Maven/Gradle (target/, build/)
-    
-    [bold]Commandes disponibles:[/bold]
-    • scan   - Scanner un répertoire
-    • clean  - Nettoyer les artefacts
-    • info   - Afficher ces informations
-    
-    [dim]Pour plus d'aide: scythe --help[/dim]
-    """
+    [bold cyan]Scythe v{__version__}[/bold cyan]
+    [italic white]A high-performance CLI utility to reclaim disk space by harvesting build artifacts.[/italic white]
 
+    [bold underline]Supported Ecosystems & Patterns:[/bold underline]
+    [yellow]• Node.js [/yellow]  : node_modules, dist, build, .next, .turbo, coverage
+    [yellow]• Python  [/yellow]  : .venv, venv, __pycache__, .pytest_cache, .egg-info
+    [yellow]• Rust    [/yellow]  : target/
+    [yellow]• Java    [/yellow]  : target/ (Maven), build/, .gradle/ (Gradle)
+    [yellow]• .NET    [/yellow]  : bin/, obj/
+
+    [bold underline]Core Commands:[/bold underline]
+    [bold green]scan[/bold green]   - Analyze directories to find projects and calculate potential savings.
+    [bold green]clean[/bold green]  - Purge detected artifacts (supports [italic]--dry-run[/italic] and [italic]--interactive[/italic]).
+    [bold green]info[/bold green]   - Display this overview and current configuration.
+
+    [dim]Need more details? Run:[/dim] [bold reverse] scythe --help [/bold reverse]
+    [dim]GitHub: https://github.com/elielMengue/scythe[/dim]
+    """
+    from scythe.banner.banner import VERSION, display_banner
+    display_banner()
     console.print(Panel(info_text, title="Guide", border_style="cyan"))
 def display_header():
     header = """
