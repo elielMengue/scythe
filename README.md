@@ -2,6 +2,8 @@
 
 > Un outil CLI intelligent pour nettoyer automatiquement les artefacts de build
 
+![Image externe](https://eliel-mengue.vercel.app/images/scythe.png)
+
 ##  Qu'est-ce que c'est ?
 
 Artifact-Scythe scanne vos répertoires de projets et détecte automatiquement les artefacts de build inutiles (node_modules, .venv, __pycache__, target/, etc.) pour libérer des dizaines de Go d'espace disque.
