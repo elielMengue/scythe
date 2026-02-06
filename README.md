@@ -84,7 +84,7 @@ pytest -v
 - [x] Phase 2: Scanner de Répertoires
 - [x] Phase 3: Détection d'Artefacts
 - [x] Phase 4: Interface Utilisateur
-- [ ] Phase 5: Moteur de Nettoyage
+- [x] Phase 5: Moteur de Nettoyage  -- **Ongoing 50%**
 - [ ] Phase 6: Fonctionnalités Avancées
 - [ ] Phase 7: Tests & Validation
 - [ ] Phase 8: Documentation & Déploiement
