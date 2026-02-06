@@ -3,16 +3,23 @@ Command Line Interface - Implemented with Click-Rich
 """
 
 import click
+from rich import box
 from rich.console import Console
 from rich.panel import Panel
 from pathlib import Path
 
+import json
+from datetime import datetime
+
+from rich.table import Table
+
 from scythe import __version__
 from scythe.logger.logger import setup_logger
 from scythe.scanner.scanner import scan_directory
+from scythe.cleaner.cleaner import clean_artifacts
 from scythe.ui.ui import (
     display_scan_result,
-    progress_bar
+    progress_bar, interactive_select_project, confirm_action
 )
 
 from scythe.formatter.formatter import save_report
@@ -138,25 +145,176 @@ def scan(ctx, path, depth, follow_symlinks, format, output, no_artifacts):
     is_flag=True,
     help="Dry run, without saving results",
 )
+
+@click.option(
+    '--depth', '-d',
+    type=int,
+    default=-1,
+    help="Maximal depth of scan"
+)
+
+@click.option(
+    '--force', '-f',
+    is_flag=True,
+    help="Force clean without confirmation"
+)
+
+@click.option(
+    '--output', '-o',
+    type=click.Path(),
+    help='Save the report of the clean result in a file'
+)
+
 @click.pass_context
-def clean(ctx, path, interactive, dry_run):
+def clean(ctx, path, interactive, dry_run, depth, force, output):
     """
         Clean the directory
     """
+    global output_path
     logger = ctx.obj["logger"]
     console = ctx.obj["console"]
 
-    logger.info(f"Cleaning directory: {path}")
+    scan_path = Path(path).resolve()
+
+    console.print("[bold cyan]Step 1/2 : Scanning projects...[/bold cyan]")
+
+    with progress_bar() as progress:
+        task = progress.add_task("[cyan]Scanning...", total=None)
+
+        def update_progress(message: str) :
+            progress.update(task, description=f"[cyan]{message}")
+
+        scan_result = scan_directory(
+            path=scan_path,
+            max_depth=depth,
+            progress_callback=update_progress
+        )
+
+    project_with_artifacts = [p for p in scan_result.projects if p.artifacts]
+
+    if not project_with_artifacts :
+        console.print(
+            "\n[yellow]Nothing to clean[/yellow]"
+        )
+        return
+
+    total_artifacts = sum(len(p.artifacts) for p in project_with_artifacts)
+    total_size = sum(p.total_artifact_size for p in project_with_artifacts)
+    from scythe.utils.utils import format_size
+
+    console.print(
+        f"\n[green]✓ Found {len(project_with_artifacts)} projects "
+        f"with {total_artifacts} artifacts ({format_size(total_size)})[/green]"
+    )
+
+    if interactive :
+        selected_projects = interactive_select_project
+        (project_with_artifacts, scan_path)
+        if not selected_projects :
+            console.print(
+                "[yellow]Nothing found[/yellow]"
+            )
+            return
+    else :
+        selected_projects = project_with_artifacts
+
+    if not force and not dry_run :
+        total_selected_size = sum(p.total_artifact_size for p in selected_projects)
+        total_selected_artifacts = sum(len(p.artifacts) for p in selected_projects)
+
+        if not confirm_action(
+             "Confirm deletion ?",
+            f"{total_selected_artifacts} artifacts - {format_size(total_selected_size)} will be deleted",
+            default=False
+        ) :
+            console.print(
+                "[yellow]Action canceled[/yellow]"
+            )
+            return
+
+    console.print(
+        "\n[bold cyan]Step 2/2 : Cleaning ...[/bold cyan]"
+    )
 
     if dry_run :
-        console.print("[cyan] DRY_RUN MODE active [/cyan]")
+        console.print("[yellow]DRY-RUN enabled - simulation, no data is deleted[/yellow]\n")
 
-    if interactive:
-        console.print("[cyan] INTERACTIVE MODE active [/cyan]")
+    with progress_bar() as progress:
+        task = progress.add_task("[cyan]Cleaning...")
+        total = len(selected_projects)
 
-    #TODO: Implemente this feature
+        def update_clean_progress(message: str) :
+            progress.update(task, advance=1, description=f"[cyan]{message}")
 
-    console.print("[yellow] Feature Not Implemented [/yellow]")
+        clean_result = clean_artifacts(
+            selected_projects,
+            dry_run=dry_run,
+            progress_callback=update_clean_progress
+        )
+
+
+    console.print()
+    if dry_run:
+        console.print(
+            f"[bold green]✓ [DRY-RUN] {clean_result.artifacts_deleted} artifacts "
+            f"could be deleted ({clean_result.space_freed_formatted})[/bold green]"
+        )
+
+    else :
+        console.print(
+            f"[bold green]✓ Cleaning end in {clean_result.clean_duration:.2f}s[/bold green]"
+        )
+
+    console.print()
+
+    result_table = Table(title="Cleaning results", box=box.ROUNDED)
+    result_table.add_column("Metrics", style="cyan")
+    result_table.add_column("Value", style="green", justify="right")
+
+    result_table.add_row("Cleaned projects", str(len(clean_result.projects_cleaned)))
+    result_table.add_row("Artifacts deleted", str(clean_result.artifacts_deleted))
+    result_table.add_row("Freed memory", clean_result.space_freed_formatted)
+    result_table.add_row("Operation success rate",  f"{clean_result.success_rate:.1f}%")
+
+    if clean_result.skipped :
+        result_table.add_row("Ignored",  f"[yellow]{len(clean_result.skipped)}[/yellow]")
+
+    if clean_result.errors :
+        result_table.add_row("Errors",  f"[red]{len(clean_result.errors)}[/red]")
+
+    console.print(result_table)
+
+
+    if clean_result.errors:
+        console.print()
+    console.print(f"[bold red] Errors : [/bold red]")
+    for error in clean_result.errors[:5]:
+        console.print(f"  [red]•[/red] {error}")
+
+    if len(clean_result.errors) > 5:
+        console.print(f"  [dim]... and {len(clean_result.errors) - 5} others[/dim]")
+
+    report = {
+        "clean_date": datetime.now().isoformat(),
+        "path": str(scan_path),
+        "summary": clean_result.get_summary(),
+        "projects": [
+            {
+                "path": str(p.path),
+                "type": p.project_type.value,
+                "artifacts_deleted": len(p.artifacts)
+            }
+            for p in clean_result.projects_cleaned
+        ],
+        "errors": clean_result.errors,
+        "skipped": clean_result.skipped
+    }
+
+    if output:
+        output_path = Path(output)
+        output_path.write_text(json.dumps(report, indent=2), encoding='utf-8')
+        console.print(f"\n[green]✓ Report saved: {output_path}[/green]")
+
 
 @cli.command()
 @click.pass_context

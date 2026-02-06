@@ -31,7 +31,7 @@ def test_project_structure(tmp_path):
     return tmp_path
 
 def test_scanner_init():
-    scanner = DirectoryScanner(Path("/test"))
+    scanner = DirectoryScanner(Path("/test"), -1)
     assert scanner.root_path == Path("/test").resolve()
     assert scanner.max_depth == -1
 

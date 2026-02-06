@@ -99,9 +99,8 @@ class ArtifactCleaner:
         try:
             if not artifact_path.exists() : #Check a valid path
                 self.logger.debug(f"Artifact removed: {artifact_path}")
-                self.artifacts_deleted +=1
-                self.space_freed += artifact.size_bytes
-                return True
+                self.skipped.append(str(artifact_path))
+                return False
 
             #Simulation
             if self.dry_run :
@@ -157,10 +156,10 @@ class ArtifactCleaner:
         path.unlink()
 
 
-    def clean_artifacts(
-            projects: List[Project],
-            dry_run: bool = False,
-            progress_callback: Optional[Callable[[str], None]] = None
+def clean_artifacts(
+        projects: List[Project],
+        dry_run: bool = False,
+        progress_callback: Optional[Callable[[str], None]] = None
     ) -> CleanResult:
 
         cleaner = ArtifactCleaner(
@@ -169,8 +168,9 @@ class ArtifactCleaner:
         )
         return cleaner.clean_projects(projects)
 
-    @staticmethod
-    def safe_delete(path: Path, dry_run: bool = False) -> bool:
+
+def safe_delete(path: Path, dry_run: bool = False) -> bool:
+
         if dry_run:
             return path.exists()
 
@@ -186,7 +186,6 @@ class ArtifactCleaner:
 
         except (OSError, PermissionError) as e:
             return False
-
 
 
 

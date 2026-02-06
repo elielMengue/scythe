@@ -64,4 +64,4 @@ def test_display_scan_results_no_projects(capsys):
 
     display_scan_result(result, Path("/test"), format="compact")
     captured = capsys.readouterr()
-    assert "Aucun projet" in captured.out or "projet" in captured.out.lower()
+    assert "No project found" in captured.out or "project" in captured.out.lower()
