@@ -742,7 +742,34 @@ def ui(ctx, path):
     from scythe.tui import run_tui
 
     scan_path = Path(path).resolve()
-    run_tui(scan_path)
+
+    display_run_header(command="ui", path=scan_path, filters={})
+
+    with scan_progress() as progress:
+        task = progress.add_task("[cyan]Scanning...", total=None)
+        counter = {"dirs": 0}
+
+        def update_progress(message: str) :
+            counter["dirs"] += 1
+            current = message.removeprefix("Scanning ").strip()
+            tail = current[-50:] if len(current) > 50 else current
+            progress.update(
+                task,
+                description=(
+                    f"[cyan]Scanning[/cyan] "
+                    f"[bold]{counter['dirs']}[/bold] [dim]dirs[/dim] "
+                    f"[dim]· {tail}[/dim]"
+                ),
+            )
+
+        scan_result = scan_directory(
+            path=scan_path,
+            max_depth=-1,
+            follow_symlinks=False,
+            progress_callback=update_progress,
+        )
+
+    run_tui(scan_path, scan_result)
 
 
 @cli.command()
