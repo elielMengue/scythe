@@ -714,6 +714,38 @@ def restore(ctx, run_id, list_only):
 
 
 @cli.command()
+@click.argument('path', type=click.Path(exists=True), default='.', metavar='[PATH]')
+@click.pass_context
+def ui(ctx, path):
+    """
+        Launch the interactive TUI for browsing and cleaning artifacts.
+
+        Full-screen alternative to `scan`/`clean` for exploration: filter,
+        sort, toggle items, and trigger a recoverable clean — all without
+        leaving the terminal.
+
+        \b
+        Arguments:
+            PATH    Directory to scan (default: current directory)
+
+        \b
+        Examples:
+            scythe ui                                # current directory
+            scythe ui ~/projects                     # specific path
+
+        \b
+        Notes:
+            • The TUI scans up-front and caches the result in memory.
+            • Cleanups triggered from the TUI default to --trash; undo
+              with the in-app shortcut or `scythe restore` from the CLI.
+    """
+    from scythe.tui import run_tui
+
+    scan_path = Path(path).resolve()
+    run_tui(scan_path)
+
+
+@cli.command()
 @click.pass_context
 def info(ctx):
     console = ctx.obj["console"]
