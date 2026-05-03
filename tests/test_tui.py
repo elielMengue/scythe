@@ -3,7 +3,7 @@
 
     Each test boots the app via Textual's `run_test()` Pilot in a
     headless event loop, drives a handful of keystrokes, and checks the
-    resulting state. No real terminal is needed.
+    resulting state.
 """
 
 import asyncio
@@ -24,7 +24,7 @@ def _run(coro):
 
 
 def _make_scan_result(root: Path) -> ScanResult:
-    """Build a small ScanResult with two cleanable projects of different types."""
+    """A small ScanResult with two cleanable projects, one of which has 2 artifacts."""
     p_node = Project(
         path=root / "web",
         project_type=ProjectType.NODE,
@@ -35,7 +35,13 @@ def _make_scan_result(root: Path) -> ScanResult:
                 size_bytes=200 * 1024 * 1024,
                 last_modified=datetime.now(),
                 artifact_type="node_modules",
-            )
+            ),
+            ArtifactInfo(
+                path=root / "web" / "dist",
+                size_bytes=20 * 1024 * 1024,
+                last_modified=datetime.now(),
+                artifact_type="dist",
+            ),
         ],
     )
     p_py = Project(
@@ -75,7 +81,6 @@ def test_empty_scan_renders_empty_panel(tmp_path: Path):
     async def go():
         app = ScytheApp(scan_path=tmp_path, scan_result=ScanResult(root_path=tmp_path))
         async with app.run_test() as pilot:
-            # No cleanable projects → empty placeholder, no DataTable.
             assert app.cleanable_projects == []
             app.query_one("#empty")
             await pilot.press("q")
@@ -87,22 +92,40 @@ def test_default_selection_is_everything(tmp_path: Path):
     async def go():
         app = ScytheApp(scan_path=tmp_path, scan_result=_make_scan_result(tmp_path))
         async with app.run_test() as pilot:
-            assert len(app.selected) == 2
+            # 2 + 1 = 3 artifacts total.
+            assert len(app.selected_artifacts) == 3
             await pilot.press("q")
 
     _run(go())
 
 
-def test_space_toggles_current_row(tmp_path: Path):
+def test_space_on_project_deselects_all_its_artifacts(tmp_path: Path):
     async def go():
         app = ScytheApp(scan_path=tmp_path, scan_result=_make_scan_result(tmp_path))
         async with app.run_test() as pilot:
-            # Cursor starts on row 0; space deselects it.
+            # Cursor is on the first project (web, with 2 artifacts).
             await pilot.press("space")
-            assert len(app.selected) == 1
-            # Space again re-selects it.
+            # Both web artifacts dropped, only the api one remains.
+            assert len(app.selected_artifacts) == 1
             await pilot.press("space")
-            assert len(app.selected) == 2
+            assert len(app.selected_artifacts) == 3
+            await pilot.press("q")
+
+    _run(go())
+
+
+def test_space_on_artifact_toggles_just_that_artifact(tmp_path: Path):
+    async def go():
+        app = ScytheApp(scan_path=tmp_path, scan_result=_make_scan_result(tmp_path))
+        async with app.run_test() as pilot:
+            # Switch focus to the artifacts pane.
+            await pilot.press("tab")
+            await pilot.press("space")
+            # One artifact deselected → 2 remaining.
+            assert len(app.selected_artifacts) == 2
+            # The web project is now in 'partial' state.
+            web = next(p for p in app.cleanable_projects if p.path.name == "web")
+            assert app._project_selection_state(web) == "partial"
             await pilot.press("q")
 
     _run(go())
@@ -112,12 +135,10 @@ def test_toggle_all_clears_then_restores(tmp_path: Path):
     async def go():
         app = ScytheApp(scan_path=tmp_path, scan_result=_make_scan_result(tmp_path))
         async with app.run_test() as pilot:
-            # Everything is selected by default; `a` clears all.
             await pilot.press("a")
-            assert app.selected == set()
-            # `a` again selects everything.
+            assert app.selected_artifacts == set()
             await pilot.press("a")
-            assert len(app.selected) == 2
+            assert len(app.selected_artifacts) == 3
             await pilot.press("q")
 
     _run(go())
