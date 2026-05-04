@@ -142,3 +142,54 @@ def test_toggle_all_clears_then_restores(tmp_path: Path):
             await pilot.press("q")
 
     _run(go())
+
+
+def test_sort_cycles_through_modes(tmp_path: Path):
+    async def go():
+        app = ScytheApp(scan_path=tmp_path, scan_result=_make_scan_result(tmp_path))
+        async with app.run_test() as pilot:
+            assert app.sort_mode == "size"
+            await pilot.press("s")
+            assert app.sort_mode == "date"
+            await pilot.press("s")
+            assert app.sort_mode == "type"
+            await pilot.press("s")
+            assert app.sort_mode == "path"
+            await pilot.press("s")
+            assert app.sort_mode == "size"
+            await pilot.press("q")
+
+    _run(go())
+
+
+def test_sort_size_orders_largest_project_first(tmp_path: Path):
+    async def go():
+        app = ScytheApp(scan_path=tmp_path, scan_result=_make_scan_result(tmp_path))
+        async with app.run_test() as pilot:
+            visible = app._visible_projects()
+            # The web project (200 + 20 MB) is larger than api (80 MB).
+            assert visible[0].path.name == "web"
+            assert visible[1].path.name == "api"
+            await pilot.press("q")
+
+    _run(go())
+
+
+def test_filter_input_narrows_visible_projects(tmp_path: Path):
+    async def go():
+        app = ScytheApp(scan_path=tmp_path, scan_result=_make_scan_result(tmp_path))
+        async with app.run_test() as pilot:
+            # Programmatic filter — bypasses the keyboard so the test
+            # doesn't depend on Input keyboard handling.
+            app.filter_text = "api"
+            app._rebuild_projects_table()
+            visible = app._visible_projects()
+            assert len(visible) == 1
+            assert visible[0].path.name == "api"
+            # Clear via the action.
+            app.action_clear_filter()
+            assert app.filter_text == ""
+            assert len(app._visible_projects()) == 2
+            await pilot.press("q")
+
+    _run(go())

@@ -9,14 +9,15 @@
     cleanable project.
 """
 
+from datetime import datetime
 from pathlib import Path
-from typing import Optional, Set
+from typing import Iterable, List, Optional, Set
 
 from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal
-from textual.widgets import DataTable, Footer, Header, Static
+from textual.widgets import DataTable, Footer, Header, Input, Static
 
 from scythe import __version__
 from scythe.models.models import Project, ScanResult
@@ -26,6 +27,14 @@ from scythe.utils.utils import format_size
 _FULL = "[x]"
 _PARTIAL = "[~]"
 _NONE = "[ ]"
+
+_SORT_MODES = ["size", "date", "type", "path"]
+_SORT_LABELS = {
+    "size": "size ↓",
+    "date": "newest",
+    "type": "type",
+    "path": "path",
+}
 
 
 class ScytheApp(App):
@@ -38,6 +47,15 @@ class ScytheApp(App):
         padding: 1 2;
         background: $boost;
         border-bottom: solid $primary;
+    }
+
+    #filter-input {
+        height: 3;
+        margin: 0 2;
+        display: none;
+    }
+    #filter-input.visible {
+        display: block;
     }
 
     #panes {
@@ -65,6 +83,9 @@ class ScytheApp(App):
         Binding("q", "quit", "Quit"),
         Binding("space", "toggle", "Toggle"),
         Binding("a", "toggle_all", "Toggle all"),
+        Binding("s", "cycle_sort", "Sort"),
+        Binding("slash", "show_filter", "Filter"),
+        Binding("escape", "clear_filter", "Clear filter", show=False),
         Binding("tab", "focus_next", "Focus pane", show=False),
     ]
 
@@ -86,12 +107,18 @@ class ScytheApp(App):
         self.selected_artifacts: Set[Path] = {
             a.path for p in self.cleanable_projects for a in p.artifacts
         }
+        self.filter_text: str = ""
+        self.sort_mode: str = "size"
 
     # ------------------------------------------------------------------ compose
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
         yield Static(self._status_text(), id="status")
+        yield Input(
+            placeholder="Filter projects (path or type) — Esc to close",
+            id="filter-input",
+        )
         if self.cleanable_projects:
             with Horizontal(id="panes"):
                 yield DataTable(
@@ -116,15 +143,13 @@ class ScytheApp(App):
         ptable.add_column("Type", key="type", width=12)
         ptable.add_column("Path", key="path")
         ptable.add_column("Size", key="size", width=10)
-        for project in self.cleanable_projects:
-            self._add_project_row(ptable, project)
 
         atable = self.query_one("#artifacts-table", DataTable)
         atable.add_column("", key="mark", width=3)
         atable.add_column("Artifact", key="type")
         atable.add_column("Size", key="size", width=10)
-        self._refresh_artifacts_panel(self.cleanable_projects[0])
 
+        self._rebuild_projects_table()
         ptable.focus()
 
     # ------------------------------------------------------------------ events
@@ -173,6 +198,50 @@ class ScytheApp(App):
             key=str(project.path),
         )
 
+    def _visible_projects(self) -> List[Project]:
+        """Cleanable projects after applying the current filter and sort."""
+        projects: Iterable[Project] = self.cleanable_projects
+        needle = self.filter_text.lower().strip()
+        if needle:
+            projects = [
+                p for p in projects
+                if needle in str(p.path).lower()
+                or needle in p.project_type.display_name.lower()
+            ]
+        return self._sort_projects(list(projects))
+
+    def _sort_projects(self, projects: List[Project]) -> List[Project]:
+        if self.sort_mode == "size":
+            return sorted(projects, key=lambda p: p.total_artifact_size, reverse=True)
+        if self.sort_mode == "date":
+            def newest(p: Project):
+                return max(
+                    (a.last_modified for a in p.artifacts),
+                    default=datetime.min,
+                )
+            return sorted(projects, key=newest, reverse=True)
+        if self.sort_mode == "type":
+            return sorted(projects, key=lambda p: p.project_type.display_name)
+        if self.sort_mode == "path":
+            return sorted(projects, key=lambda p: str(p.path))
+        return projects
+
+    def _rebuild_projects_table(self) -> None:
+        if not self.cleanable_projects:
+            # No tables exist in the empty layout; nothing to rebuild.
+            return
+        ptable = self.query_one("#projects-table", DataTable)
+        ptable.clear()
+        visible = self._visible_projects()
+        for project in visible:
+            self._add_project_row(ptable, project)
+        atable = self.query_one("#artifacts-table", DataTable)
+        if visible:
+            self._refresh_artifacts_panel(visible[0])
+        else:
+            atable.clear()
+        self._refresh_status()
+
     def _refresh_artifacts_panel(self, project: Project) -> None:
         atable = self.query_one("#artifacts-table", DataTable)
         atable.clear()
@@ -193,11 +262,17 @@ class ScytheApp(App):
             for a in p.artifacts
             if a.path in self.selected_artifacts
         )
+        chips = [
+            f"{len(self.cleanable_projects)} project(s)",
+            f"{len(self.selected_artifacts)}/{total_artifacts} artifacts",
+            f"{format_size(selected_size)} to free",
+            f"sort: {_SORT_LABELS[self.sort_mode]}",
+        ]
+        if self.filter_text:
+            chips.append(f"filter: '{self.filter_text}'")
         return (
             f"[bold cyan]scythe ui[/bold cyan]  [white]{self.scan_path}[/white]\n"
-            f"[dim]{len(self.cleanable_projects)} project(s) · "
-            f"{len(self.selected_artifacts)}/{total_artifacts} artifacts · "
-            f"{format_size(selected_size)} to free[/dim]"
+            f"[dim]{' · '.join(chips)}[/dim]"
         )
 
     def _refresh_status(self) -> None:
@@ -276,15 +351,38 @@ class ScytheApp(App):
             self.selected_artifacts.clear()
         else:
             self.selected_artifacts = all_paths
-        ptable = self.query_one("#projects-table", DataTable)
-        for project in self.cleanable_projects:
-            ptable.update_cell(
-                str(project.path), "mark", self._project_marker(project),
-            )
-        current = self._current_project()
-        if current is not None:
-            self._refresh_artifacts_panel(current)
-        self._refresh_status()
+        # A full rebuild keeps the displayed rows (which may be a
+        # filtered subset) in sync without juggling per-row updates.
+        self._rebuild_projects_table()
+
+    def action_cycle_sort(self) -> None:
+        idx = _SORT_MODES.index(self.sort_mode)
+        self.sort_mode = _SORT_MODES[(idx + 1) % len(_SORT_MODES)]
+        self._rebuild_projects_table()
+
+    def action_show_filter(self) -> None:
+        inp = self.query_one("#filter-input", Input)
+        inp.add_class("visible")
+        inp.focus()
+
+    def action_clear_filter(self) -> None:
+        inp = self.query_one("#filter-input", Input)
+        inp.value = ""
+        inp.remove_class("visible")
+        self.filter_text = ""
+        self._rebuild_projects_table()
+        self.query_one("#projects-table", DataTable).focus()
+
+    @on(Input.Changed, "#filter-input")
+    def _on_filter_changed(self, event: Input.Changed) -> None:
+        self.filter_text = event.value
+        self._rebuild_projects_table()
+
+    @on(Input.Submitted, "#filter-input")
+    def _on_filter_submitted(self, event: Input.Submitted) -> None:
+        # Enter applies the filter and returns focus to the project table
+        # (the input stays visible so the user can see the active filter).
+        self.query_one("#projects-table", DataTable).focus()
 
 
 def run_tui(scan_path: Path, scan_result: Optional[ScanResult] = None) -> None:
