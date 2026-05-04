@@ -193,3 +193,100 @@ def test_filter_input_narrows_visible_projects(tmp_path: Path):
             await pilot.press("q")
 
     _run(go())
+
+
+def _make_real_artifact_scan_result(root: Path) -> ScanResult:
+    """ScanResult with real on-disk artifacts so the cleaner can move them."""
+    proj_dir = root / "demo"
+    artifact_dir = proj_dir / "node_modules"
+    artifact_dir.mkdir(parents=True)
+    (artifact_dir / "marker.txt").write_text("hello")
+    proj = Project(
+        path=proj_dir,
+        project_type=ProjectType.NODE,
+        marker_files=["package.json"],
+        artifacts=[
+            ArtifactInfo(
+                path=artifact_dir,
+                size_bytes=10,
+                last_modified=datetime.now(),
+                artifact_type="node_modules",
+            )
+        ],
+    )
+    return ScanResult(root_path=root, projects=[proj], scan_duration=0.1)
+
+
+def test_clean_with_confirmation_moves_to_trash(tmp_path: Path):
+    """Press c, confirm with y; the artifact is moved to the test trash root."""
+    scan_root = tmp_path / "src"
+    scan_root.mkdir()
+    trash_root = tmp_path / "trash"
+    scan_result = _make_real_artifact_scan_result(scan_root)
+    artifact_path = scan_result.projects[0].artifacts[0].path
+
+    async def go():
+        app = ScytheApp(
+            scan_path=scan_root,
+            scan_result=scan_result,
+            trash_root=trash_root,
+        )
+        async with app.run_test() as pilot:
+            assert artifact_path.exists()
+            await pilot.press("c")
+            # The confirm modal is now top of stack; y dismisses it as True.
+            await pilot.press("y")
+            await pilot.pause()
+            # Artifact gone from original location, app state pruned.
+            assert not artifact_path.exists()
+            assert app.cleanable_projects == []
+            assert app.last_run_id is not None
+            await pilot.press("q")
+
+    _run(go())
+
+
+def test_clean_cancel_keeps_artifacts(tmp_path: Path):
+    scan_root = tmp_path / "src"
+    scan_root.mkdir()
+    trash_root = tmp_path / "trash"
+    scan_result = _make_real_artifact_scan_result(scan_root)
+    artifact_path = scan_result.projects[0].artifacts[0].path
+
+    async def go():
+        app = ScytheApp(
+            scan_path=scan_root,
+            scan_result=scan_result,
+            trash_root=trash_root,
+        )
+        async with app.run_test() as pilot:
+            await pilot.press("c")
+            await pilot.press("n")  # cancel
+            await pilot.pause()
+            assert artifact_path.exists()
+            assert app.last_run_id is None
+            await pilot.press("q")
+
+    _run(go())
+
+
+def test_undo_with_no_runs_warns(tmp_path: Path):
+    """Pressing u when no runs exist should not crash and should leave state intact."""
+    scan_root = tmp_path / "src"
+    scan_root.mkdir()
+    trash_root = tmp_path / "trash"
+
+    async def go():
+        app = ScytheApp(
+            scan_path=scan_root,
+            scan_result=_make_scan_result(scan_root),
+            trash_root=trash_root,
+        )
+        async with app.run_test() as pilot:
+            # No runs yet → undo is a no-op (warning notification).
+            await pilot.press("u")
+            await pilot.pause()
+            assert app.last_run_id is None
+            await pilot.press("q")
+
+    _run(go())

@@ -16,7 +16,8 @@ from typing import Iterable, List, Optional, Set
 from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal
+from textual.containers import Horizontal, Container
+from textual.screen import ModalScreen
 from textual.widgets import DataTable, Footer, Header, Input, Static
 
 from scythe import __version__
@@ -35,6 +36,52 @@ _SORT_LABELS = {
     "type": "type",
     "path": "path",
 }
+
+
+class ConfirmCleanScreen(ModalScreen[bool]):
+    """Modal asking the user to confirm a clean run."""
+
+    CSS = """
+    ConfirmCleanScreen {
+        align: center middle;
+    }
+    #dialog {
+        width: 60;
+        height: auto;
+        border: thick $primary;
+        background: $surface;
+        padding: 1 2;
+    }
+    #dialog-help {
+        color: $text-muted;
+        margin-top: 1;
+    }
+    """
+
+    BINDINGS = [
+        Binding("y", "confirm", "Confirm"),
+        Binding("enter", "confirm", "Confirm", show=False),
+        Binding("n", "cancel", "Cancel"),
+        Binding("escape", "cancel", "Cancel", show=False),
+    ]
+
+    def __init__(self, summary: str) -> None:
+        super().__init__()
+        self.summary = summary
+
+    def compose(self) -> ComposeResult:
+        with Container(id="dialog"):
+            yield Static(self.summary, id="dialog-text")
+            yield Static(
+                "[dim]y / Enter to confirm · n / Esc to cancel[/dim]",
+                id="dialog-help",
+            )
+
+    def action_confirm(self) -> None:
+        self.dismiss(True)
+
+    def action_cancel(self) -> None:
+        self.dismiss(False)
 
 
 class ScytheApp(App):
@@ -83,6 +130,8 @@ class ScytheApp(App):
         Binding("q", "quit", "Quit"),
         Binding("space", "toggle", "Toggle"),
         Binding("a", "toggle_all", "Toggle all"),
+        Binding("c", "clean", "Clean"),
+        Binding("u", "undo", "Undo"),
         Binding("s", "cycle_sort", "Sort"),
         Binding("slash", "show_filter", "Filter"),
         Binding("escape", "clear_filter", "Clear filter", show=False),
@@ -96,6 +145,7 @@ class ScytheApp(App):
             self,
             scan_path: Path,
             scan_result: Optional[ScanResult] = None,
+            trash_root: Optional[Path] = None,
     ) -> None:
         super().__init__()
         self.scan_path = scan_path
@@ -109,6 +159,10 @@ class ScytheApp(App):
         }
         self.filter_text: str = ""
         self.sort_mode: str = "size"
+        # When set, every TrashMover spawned by the TUI uses this root
+        # instead of the per-user data dir. Tests pass a tmp_path here.
+        self.trash_root: Optional[Path] = trash_root
+        self.last_run_id: Optional[str] = None
 
     # ------------------------------------------------------------------ compose
 
@@ -384,7 +438,124 @@ class ScytheApp(App):
         # (the input stays visible so the user can see the active filter).
         self.query_one("#projects-table", DataTable).focus()
 
+    # ------------------------------------------------------------------- clean
 
-def run_tui(scan_path: Path, scan_result: Optional[ScanResult] = None) -> None:
+    def _build_clean_targets(self) -> List[Project]:
+        """A copy of every project, keeping only its currently selected artifacts."""
+        targets: List[Project] = []
+        for p in self.cleanable_projects:
+            picks = [a for a in p.artifacts if a.path in self.selected_artifacts]
+            if not picks:
+                continue
+            targets.append(
+                Project(
+                    path=p.path,
+                    project_type=p.project_type,
+                    marker_files=p.marker_files,
+                    artifacts=picks,
+                )
+            )
+        return targets
+
+    def action_clean(self) -> None:
+        targets = self._build_clean_targets()
+        if not targets:
+            self.notify("Nothing selected.", severity="warning", timeout=3)
+            return
+
+        total_artifacts = sum(len(t.artifacts) for t in targets)
+        total_size = sum(a.size_bytes for t in targets for a in t.artifacts)
+        summary = (
+            f"[bold]Clean {len(targets)} project(s)?[/bold]\n"
+            f"[yellow]{total_artifacts} artifact(s) · "
+            f"{format_size(total_size)}[/yellow]\n\n"
+            f"[dim]Mode: trash (recoverable via 'u' or "
+            f"[bold]scythe restore[/bold]).[/dim]"
+        )
+
+        def on_confirm(confirmed: Optional[bool]) -> None:
+            if confirmed:
+                self._do_clean(targets)
+
+        self.push_screen(ConfirmCleanScreen(summary), on_confirm)
+
+    def _do_clean(self, targets: List[Project]) -> None:
+        from scythe.cleaner.cleaner import ArtifactCleaner
+        from scythe.trash import TrashMover
+
+        trash_mover = TrashMover(root=self.trash_root) if self.trash_root else TrashMover()
+        cleaner = ArtifactCleaner(trash_mover=trash_mover)
+        result = cleaner.clean_projects(targets)
+        trash_mover.finalize(scan_path=self.scan_path)
+
+        self.last_run_id = trash_mover.run_id
+
+        # Drop cleaned artifacts from the in-memory model so the UI
+        # reflects the new state without a rescan. Projects whose entire
+        # artifact list was just cleaned drop out of cleanable_projects.
+        cleaned = {a.path for t in targets for a in t.artifacts}
+        self.selected_artifacts -= cleaned
+        new_cleanable: List[Project] = []
+        for p in self.cleanable_projects:
+            remaining = [a for a in p.artifacts if a.path not in cleaned]
+            if remaining:
+                new_cleanable.append(
+                    Project(
+                        path=p.path,
+                        project_type=p.project_type,
+                        marker_files=p.marker_files,
+                        artifacts=remaining,
+                    )
+                )
+        self.cleanable_projects = new_cleanable
+        self._rebuild_projects_table()
+
+        self.notify(
+            f"Trashed {result.artifacts_deleted} artifact(s) · "
+            f"{result.space_freed_formatted}. "
+            f"Run id: {trash_mover.run_id}",
+            timeout=6,
+        )
+
+    def action_undo(self) -> None:
+        from scythe.trash import list_runs, load_manifest, restore_run
+
+        runs = list_runs(root=self.trash_root) if self.trash_root else list_runs()
+        if not runs:
+            self.notify(
+                "No recoverable runs found.",
+                severity="warning",
+                timeout=3,
+            )
+            return
+
+        manifest_path = runs[0]
+        data = load_manifest(manifest_path)
+        if data.get("restored_at"):
+            self.notify(
+                f"Run {data['run_id']} was already restored on "
+                f"{data['restored_at']}.",
+                severity="warning",
+                timeout=4,
+            )
+            return
+
+        summary = restore_run(manifest_path)
+        self.notify(
+            f"Restored {len(summary['restored'])} item(s) "
+            f"from run {data['run_id']}. Rescan to see them.",
+            timeout=6,
+        )
+
+
+def run_tui(
+        scan_path: Path,
+        scan_result: Optional[ScanResult] = None,
+        trash_root: Optional[Path] = None,
+) -> None:
     """Blocking entry point invoked by the `scythe ui` CLI subcommand."""
-    ScytheApp(scan_path=scan_path, scan_result=scan_result).run()
+    ScytheApp(
+        scan_path=scan_path,
+        scan_result=scan_result,
+        trash_root=trash_root,
+    ).run()
