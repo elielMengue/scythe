@@ -41,7 +41,7 @@ mixed-stack `~/projects` folder in one workflow.
 | `npkill`   | Node only (`node_modules`)                        | Interactive TUI   | Sort by size / age                   | None            | npm                         |
 | `kondo`    | Rust + a handful (Node, JS, Java, Haskell, …)     | Interactive prompt| Older-than                           | None            | Cargo, Homebrew             |
 | `cleanpy`  | Python only                                       | CLI               | Cache types                          | None            | pip                         |
-| **`scythe`** | **Node, Python, Rust, Java (Maven + Gradle), Go, Ruby, .NET** (Swift planned) | CLI today, **TUI mode `scythe ui` planned** | `--only`, `--older-than`, `--min-size` (`--ignore` planned) | **JSON / CSV** export, dry-run report, **recoverable trash + `scythe restore`** | **pipx**, pip, **Docker** (multi-arch), standalones planned |
+| **`scythe`** | **Node, Python, Rust, Java (Maven + Gradle), Go, Ruby, .NET** (Swift planned) | **CLI + interactive TUI** (`scythe ui`) | `--only`, `--older-than`, `--min-size` (`--ignore` planned) | **JSON / CSV** export, dry-run report, **recoverable trash + `scythe restore`** | **pipx**, pip, **Docker** (multi-arch), standalones planned |
 
 When to reach for which:
 - Only have a `node_modules` problem? `npkill` is purpose-built.
@@ -107,7 +107,7 @@ docker run --rm -v "$PWD":/work ghcr.io/elielmengue/scythe:latest \
     clean /work --dry-run
 ```
 
-Tags follow the PyPI release: `:latest`, `:0.6.1`, `:0.6`, `:0`. The
+Tags follow the PyPI release: `:latest`, `:0.7.0`, `:0.7`, `:0`. The
 rolling `:edge` tag tracks `main`.
 
 ### From source
@@ -168,6 +168,39 @@ on macOS, `$XDG_DATA_HOME/scythe` or `~/.local/share/scythe` on Linux).
 A run that's already been restored, has a missing trash payload, or whose
 destination has been re-created since the clean, is reported as *skipped*
 rather than failing.
+
+### `scythe ui` — interactive TUI
+
+```bash
+scythe ui                                  # current directory
+scythe ui ~/projects                       # specific path
+```
+
+Full-screen alternative to `scan`/`clean` for exploration. Built on
+[Textual](https://textual.textualize.io/), `scythe ui` shows two panes
+side-by-side: a sortable, filterable list of cleanable projects on
+the left, and the artifact list of the currently focused project on
+the right. The status header surfaces the running totals
+(`N projects · M/K artifacts · X.YZ GB to free`) so you always know
+what a clean would reclaim.
+
+| Key       | Action                                                      |
+|-----------|-------------------------------------------------------------|
+| `space`   | Toggle the row under the cursor (project or single artifact)|
+| `a`       | Toggle every artifact across every project                  |
+| `Tab`     | Switch focus between the two panes                          |
+| `s`       | Cycle sort: size · newest · type · path                     |
+| `/`       | Filter the project list by path or type substring           |
+| `Esc`     | Close/clear the filter                                      |
+| `c`       | Clean the selected artifacts (asks for confirmation)        |
+| `u`       | Undo the most recent clean run                              |
+| `q`       | Quit                                                        |
+
+Cleans triggered from the TUI default to **trash mode** — artifacts
+are moved into scythe's recoverable trash dir rather than permanently
+unlinked, and a per-run manifest is written. `u` (or `scythe restore`
+from a regular shell) brings them back. The CLI commands stay
+unchanged for scripts and CI; the TUI is for interactive exploration.
 
 ### `scythe info`
 
@@ -244,15 +277,13 @@ invariant of the codebase.
       moves artifacts under a per-user data dir and writes a per-run
       manifest; `scythe restore` undoes the most recent run (or a
       specific one by id). _(v0.6.0)_
+- [x] **`scythe ui` — interactive TUI mode** (Textual) — full-screen
+      browse-and-clean experience: project list with sort and filter,
+      per-project artifact pane, item-level toggles, live total-size
+      readout, and a trash-mode clean with in-app undo. _(v0.7.0)_
 - [x] Distribution: PyPI (`pipx`), Docker (multi-arch GHCR)
 
 ### Safety & UX
-
-- [ ] **`scythe ui` — interactive TUI mode** (Textual) — full-screen
-      browse-and-clean experience: filterable project list, expandable
-      artifact tree per project, live total-size readout, item-level
-      toggles, and an undo stack that pairs naturally with trash-mode.
-      The CLI stays for scripts and CI; the TUI is for exploration.
 
 ### Filters & customization
 

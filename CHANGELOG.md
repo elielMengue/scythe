@@ -2,6 +2,35 @@
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-05-04
+
+### Added
+- **`scythe ui` — interactive TUI mode** (Textual). Full-screen
+  alternative to `scan`/`clean` for exploration. Two side-by-side
+  panes: a project list on the left (sortable by size · newest · type
+  · path, filterable by substring) and the artifact list of the
+  focused project on the right. The header surfaces running totals
+  (`N projects · M/K artifacts · X.YZ GB to free`).
+  - `space` toggles the row under the cursor (a project, full or
+    partial; or a single artifact); `a` toggles every artifact.
+  - `Tab` switches focus between panes.
+  - `s` cycles sort modes; `/` opens a filter input (Esc to close).
+  - `c` runs the selected artifacts through `ArtifactCleaner` in
+    **trash mode** (recoverable) after a confirmation modal; `u`
+    restores the most recent run.
+  - The CLI gains a `scythe ui [PATH]` subcommand. Textual is loaded
+    lazily so non-TUI commands keep their cold-start time.
+- New `scythe.tui` package (`ScytheApp`, `run_tui`,
+  `ConfirmCleanScreen`). Twelve Pilot-driven smoke and interaction
+  tests cover boot, the empty case, default selection, project- and
+  artifact-level toggles (with partial-state assertion), toggle-all,
+  sort cycling and ordering, filter narrowing, confirm-and-trash on a
+  real on-disk artifact, cancel, and undo with no runs.
+
+### Changed
+- `.gitignore` broadened to exclude `__pycache__/`, `*.pyc`, `*.pyo`,
+  `.pytest_cache/`, and `.pytest_tmp/`.
+
 ## [0.6.1] - 2026-05-03
 
 ### Changed
