@@ -11,9 +11,9 @@
 
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable, List, Optional, Set
+from typing import Any, Dict, Iterable, List, Optional, Set
 
-from textual import on
+from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Container
@@ -123,6 +123,10 @@ class ScytheApp(App):
         height: 1fr;
         padding: 4;
         color: $text-muted;
+        display: none;
+    }
+    #empty.visible {
+        display: block;
     }
     """
 
@@ -147,17 +151,14 @@ class ScytheApp(App):
             scan_result: Optional[ScanResult] = None,
             trash_root: Optional[Path] = None,
             use_trash: bool = True,
+            scan_options: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__()
         self.scan_path = scan_path
         self.scan_result = scan_result or ScanResult(root_path=scan_path)
-        self.cleanable_projects = [
-            p for p in self.scan_result.projects if p.artifacts
-        ]
+        self.cleanable_projects: List[Project] = []
         # Selection is opt-out: every artifact starts selected.
-        self.selected_artifacts: Set[Path] = {
-            a.path for p in self.cleanable_projects for a in p.artifacts
-        }
+        self.selected_artifacts: Set[Path] = set()
         self.filter_text: str = ""
         self.sort_mode: str = "size"
         # When set, every TrashMover spawned by the TUI uses this root
@@ -165,6 +166,24 @@ class ScytheApp(App):
         self.trash_root: Optional[Path] = trash_root
         self.use_trash: bool = use_trash
         self.last_run_id: Optional[str] = None
+        # Live-scan plumbing. When `scan_options` is provided the TUI
+        # runs scan_directory itself in a worker thread; when a
+        # `scan_result` is provided up front (tests) it skips the scan.
+        self._scan_options: Optional[Dict[str, Any]] = scan_options
+        self._scanning: bool = False
+        self._scan_dir_count: int = 0
+        self._scan_current: str = ""
+        if scan_result is not None:
+            self._apply_scan_result(scan_result)
+
+    def _apply_scan_result(self, scan_result: ScanResult) -> None:
+        self.scan_result = scan_result
+        self.cleanable_projects = [
+            p for p in scan_result.projects if p.artifacts
+        ]
+        self.selected_artifacts = {
+            a.path for p in self.cleanable_projects for a in p.artifacts
+        }
 
     # ------------------------------------------------------------------ compose
 
@@ -175,25 +194,21 @@ class ScytheApp(App):
             placeholder="Filter projects (path or type) — Esc to close",
             id="filter-input",
         )
-        if self.cleanable_projects:
-            with Horizontal(id="panes"):
-                yield DataTable(
-                    id="projects-table", cursor_type="row", zebra_stripes=True,
-                )
-                yield DataTable(
-                    id="artifacts-table", cursor_type="row", zebra_stripes=True,
-                )
-        else:
-            yield Static(
-                "No cleanable projects under this path.\n"
-                "[dim]Press [bold]q[/bold] to quit.[/dim]",
-                id="empty",
+        with Horizontal(id="panes"):
+            yield DataTable(
+                id="projects-table", cursor_type="row", zebra_stripes=True,
             )
+            yield DataTable(
+                id="artifacts-table", cursor_type="row", zebra_stripes=True,
+            )
+        yield Static(
+            "No cleanable projects under this path.\n"
+            "[dim]Press [bold]q[/bold] to quit.[/dim]",
+            id="empty",
+        )
         yield Footer()
 
     def on_mount(self) -> None:
-        if not self.cleanable_projects:
-            return
         ptable = self.query_one("#projects-table", DataTable)
         ptable.add_column("", key="mark", width=3)
         ptable.add_column("Type", key="type", width=12)
@@ -205,8 +220,71 @@ class ScytheApp(App):
         atable.add_column("Artifact", key="type")
         atable.add_column("Size", key="size", width=10)
 
-        self._rebuild_projects_table()
-        ptable.focus()
+        if self._scan_options is not None:
+            self._scanning = True
+            self._refresh_status()
+            self._run_scan()
+        else:
+            self._after_scan_ready()
+
+    def _after_scan_ready(self) -> None:
+        """Populate the UI once a ScanResult is available (live or injected)."""
+        panes = self.query_one("#panes")
+        empty = self.query_one("#empty")
+        if self.cleanable_projects:
+            panes.display = True
+            empty.remove_class("visible")
+            self._rebuild_projects_table()
+            self.query_one("#projects-table", DataTable).focus()
+        else:
+            panes.display = False
+            empty.add_class("visible")
+        self._refresh_status()
+
+    @work(thread=True, exclusive=True)
+    def _run_scan(self) -> None:
+        from scythe.scanner.scanner import scan_directory
+
+        opts = self._scan_options or {}
+        counter = [0]
+
+        def progress_cb(message: str) -> None:
+            counter[0] += 1
+            current = message.removeprefix("Scanning ").strip()
+            self.call_from_thread(self._on_scan_progress, counter[0], current)
+
+        result = scan_directory(
+            path=self.scan_path,
+            max_depth=opts.get("depth", -1),
+            follow_symlinks=opts.get("follow_symlinks", False),
+            progress_callback=progress_cb,
+        )
+
+        only_types = opts.get("only_types")
+        if only_types:
+            result.projects = [p for p in result.projects if p.project_type in only_types]
+
+        older_than = opts.get("older_than", 0)
+        if older_than and older_than > 0:
+            from scythe.utils.utils import filter_projects_by_artifact_age
+            result.projects = filter_projects_by_artifact_age(result.projects, older_than)
+
+        min_size_bytes = opts.get("min_size_bytes")
+        if min_size_bytes:
+            from scythe.utils.utils import filter_projects_by_artifact_size
+            result.projects = filter_projects_by_artifact_size(result.projects, min_size_bytes)
+
+        self.call_from_thread(self._on_scan_complete, result)
+
+    def _on_scan_progress(self, dir_count: int, current: str) -> None:
+        self._scan_dir_count = dir_count
+        self._scan_current = current
+        self._refresh_status()
+
+    def _on_scan_complete(self, scan_result: ScanResult) -> None:
+        self._scanning = False
+        self._apply_scan_result(scan_result)
+        self._after_scan_ready()
 
     # ------------------------------------------------------------------ events
 
@@ -311,6 +389,15 @@ class ScytheApp(App):
             )
 
     def _status_text(self) -> str:
+        if self._scanning:
+            chips = [f"scanning… {self._scan_dir_count} dirs"]
+            if self._scan_current:
+                tail = self._scan_current[-50:]
+                chips.append(tail)
+            return (
+                f"[bold cyan]scythe ui[/bold cyan]  [white]{self.scan_path}[/white]\n"
+                f"[dim]{' · '.join(chips)}[/dim]"
+            )
         total_artifacts = sum(len(p.artifacts) for p in self.cleanable_projects)
         selected_size = sum(
             a.size_bytes
@@ -569,6 +656,7 @@ def run_tui(
         scan_result: Optional[ScanResult] = None,
         trash_root: Optional[Path] = None,
         use_trash: bool = True,
+        scan_options: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Blocking entry point invoked by the `scythe ui` CLI subcommand."""
     ScytheApp(
@@ -576,4 +664,5 @@ def run_tui(
         scan_result=scan_result,
         trash_root=trash_root,
         use_trash=use_trash,
+        scan_options=scan_options,
     ).run()
