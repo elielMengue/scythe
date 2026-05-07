@@ -146,6 +146,7 @@ class ScytheApp(App):
             scan_path: Path,
             scan_result: Optional[ScanResult] = None,
             trash_root: Optional[Path] = None,
+            use_trash: bool = True,
     ) -> None:
         super().__init__()
         self.scan_path = scan_path
@@ -162,6 +163,7 @@ class ScytheApp(App):
         # When set, every TrashMover spawned by the TUI uses this root
         # instead of the per-user data dir. Tests pass a tmp_path here.
         self.trash_root: Optional[Path] = trash_root
+        self.use_trash: bool = use_trash
         self.last_run_id: Optional[str] = None
 
     # ------------------------------------------------------------------ compose
@@ -465,12 +467,18 @@ class ScytheApp(App):
 
         total_artifacts = sum(len(t.artifacts) for t in targets)
         total_size = sum(a.size_bytes for t in targets for a in t.artifacts)
+        if self.use_trash:
+            mode_line = (
+                "[dim]Mode: trash (recoverable via 'u' or "
+                "[bold]scythe restore[/bold]).[/dim]"
+            )
+        else:
+            mode_line = "[dim]Mode: [bold red]permanent delete[/bold red] (--no-trash).[/dim]"
         summary = (
             f"[bold]Clean {len(targets)} project(s)?[/bold]\n"
             f"[yellow]{total_artifacts} artifact(s) · "
             f"{format_size(total_size)}[/yellow]\n\n"
-            f"[dim]Mode: trash (recoverable via 'u' or "
-            f"[bold]scythe restore[/bold]).[/dim]"
+            f"{mode_line}"
         )
 
         def on_confirm(confirmed: Optional[bool]) -> None:
@@ -481,14 +489,19 @@ class ScytheApp(App):
 
     def _do_clean(self, targets: List[Project]) -> None:
         from scythe.cleaner.cleaner import ArtifactCleaner
-        from scythe.trash import TrashMover
 
-        trash_mover = TrashMover(root=self.trash_root) if self.trash_root else TrashMover()
-        cleaner = ArtifactCleaner(trash_mover=trash_mover)
-        result = cleaner.clean_projects(targets)
-        trash_mover.finalize(scan_path=self.scan_path)
+        if self.use_trash:
+            from scythe.trash import TrashMover
 
-        self.last_run_id = trash_mover.run_id
+            trash_mover = TrashMover(root=self.trash_root) if self.trash_root else TrashMover()
+            cleaner = ArtifactCleaner(trash_mover=trash_mover)
+            result = cleaner.clean_projects(targets)
+            trash_mover.finalize(scan_path=self.scan_path)
+            self.last_run_id = trash_mover.run_id
+        else:
+            cleaner = ArtifactCleaner()
+            result = cleaner.clean_projects(targets)
+            self.last_run_id = None
 
         # Drop cleaned artifacts from the in-memory model so the UI
         # reflects the new state without a rescan. Projects whose entire
@@ -510,10 +523,13 @@ class ScytheApp(App):
         self.cleanable_projects = new_cleanable
         self._rebuild_projects_table()
 
+        if self.use_trash:
+            verb, suffix = "Trashed", f" Run id: {self.last_run_id}"
+        else:
+            verb, suffix = "Deleted", ""
         self.notify(
-            f"Trashed {result.artifacts_deleted} artifact(s) · "
-            f"{result.space_freed_formatted}. "
-            f"Run id: {trash_mover.run_id}",
+            f"{verb} {result.artifacts_deleted} artifact(s) · "
+            f"{result.space_freed_formatted}.{suffix}",
             timeout=6,
         )
 
@@ -552,10 +568,12 @@ def run_tui(
         scan_path: Path,
         scan_result: Optional[ScanResult] = None,
         trash_root: Optional[Path] = None,
+        use_trash: bool = True,
 ) -> None:
     """Blocking entry point invoked by the `scythe ui` CLI subcommand."""
     ScytheApp(
         scan_path=scan_path,
         scan_result=scan_result,
         trash_root=trash_root,
+        use_trash=use_trash,
     ).run()

@@ -715,8 +715,19 @@ def restore(ctx, run_id, list_only):
 
 @cli.command()
 @click.argument('path', type=click.Path(exists=True), default='.', metavar='[PATH]')
+@click.option('--depth', '-d', type=int, default=-1, metavar='N', show_default=True,
+              help='Maximal depth of scan')
+@click.option('--follow-symlinks', is_flag=True, help='Follow symbolic links during scan')
+@click.option('--only', type=str, default=None, metavar='TYPES',
+              help='Comma-separated project types to keep (e.g. node,python,rust)')
+@click.option('--older-than', type=int, default=0, metavar='DAYS',
+              help='Only keep artifacts whose last_modified is older than DAYS days')
+@click.option('--min-size', type=str, default=None, metavar='SIZE',
+              help='Only keep artifacts at or above SIZE (e.g. 100MB, 1GB, 512KB)')
+@click.option('--no-trash', is_flag=True,
+              help='Delete artifacts directly instead of moving them to scythe trash.')
 @click.pass_context
-def ui(ctx, path):
+def ui(ctx, path, depth, follow_symlinks, only, older_than, min_size, no_trash):
     """
         Launch the interactive TUI for browsing and cleaning artifacts.
 
@@ -731,25 +742,41 @@ def ui(ctx, path):
         \b
         Examples:
             scythe ui                                # current directory
-            scythe ui ~/projects                     # specific path
+            scythe ui ~/projects --min-size 100MB    # focus on big artifacts
+            scythe ui . --only node,python -d 3      # narrow scan
 
         \b
         Notes:
             • The TUI scans up-front and caches the result in memory.
             • Cleanups triggered from the TUI default to --trash; undo
               with the in-app shortcut or `scythe restore` from the CLI.
+              Pass --no-trash to delete directly instead.
     """
     from scythe.tui import run_tui
 
+    logger = ctx.obj["logger"]
     scan_path = Path(path).resolve()
+    only_types = _parse_only_filter(only)
+    min_size_bytes = _parse_min_size(min_size)
 
-    display_run_header(command="ui", path=scan_path, filters={})
+    display_run_header(
+        command="ui",
+        path=scan_path,
+        filters={
+            "depth": depth if depth >= 0 else None,
+            "follow-symlinks": "yes" if follow_symlinks else None,
+            "only": ", ".join(t.display_name for t in only_types) if only_types else None,
+            "older-than": f"{older_than}d" if older_than and older_than > 0 else None,
+            "min-size": format_size(min_size_bytes) if min_size_bytes else None,
+            "trash": "off" if no_trash else None,
+        },
+    )
 
     with scan_progress() as progress:
         task = progress.add_task("[cyan]Scanning...", total=None)
         counter = {"dirs": 0}
 
-        def update_progress(message: str) :
+        def update_progress(message: str):
             counter["dirs"] += 1
             current = message.removeprefix("Scanning ").strip()
             tail = current[-50:] if len(current) > 50 else current
@@ -764,12 +791,37 @@ def ui(ctx, path):
 
         scan_result = scan_directory(
             path=scan_path,
-            max_depth=-1,
-            follow_symlinks=False,
+            max_depth=depth,
+            follow_symlinks=follow_symlinks,
             progress_callback=update_progress,
         )
 
-    run_tui(scan_path, scan_result)
+    if only_types:
+        before = len(scan_result.projects)
+        scan_result.projects = [p for p in scan_result.projects if p.project_type in only_types]
+        logger.info(
+            f"--only filter: kept {len(scan_result.projects)}/{before} projects"
+        )
+
+    if older_than and older_than > 0:
+        from scythe.utils.utils import filter_projects_by_artifact_age
+        before = len(scan_result.projects)
+        scan_result.projects = filter_projects_by_artifact_age(scan_result.projects, older_than)
+        logger.info(
+            f"--older-than {older_than} filter: kept {len(scan_result.projects)}/{before} projects"
+        )
+
+    if min_size_bytes:
+        from scythe.utils.utils import filter_projects_by_artifact_size
+        before_artifacts = sum(len(p.artifacts) for p in scan_result.projects)
+        scan_result.projects = filter_projects_by_artifact_size(scan_result.projects, min_size_bytes)
+        after_artifacts = sum(len(p.artifacts) for p in scan_result.projects)
+        logger.info(
+            f"--min-size {format_size(min_size_bytes)} filter: kept "
+            f"{after_artifacts}/{before_artifacts} artifacts"
+        )
+
+    run_tui(scan_path, scan_result, use_trash=not no_trash)
 
 
 @cli.command()
