@@ -120,7 +120,30 @@ pip install -e ".[dev]"
 
 ## Usage
 
+`scythe` is a Click group with five subcommands — `scan`, `clean`,
+`restore`, `ui`, `info` — plus a small set of options that apply to
+every invocation.
+
+### Global options
+
+These work with any subcommand and must be passed *before* the
+subcommand name (e.g. `scythe --verbose scan .`).
+
+| Option           | Description                                                                                |
+|------------------|--------------------------------------------------------------------------------------------|
+| `--verbose, -v`  | Enable DEBUG-level logging (per-directory walks, filter decisions, internal state).         |
+| `--no-log-file`  | Skip writing the timestamped log file under `./logs/`. Console output is unaffected.        |
+| `--version`      | Print the installed version and exit.                                                       |
+| `--help`         | Show the top-level help and exit. Available on every subcommand too (`scythe scan --help`). |
+
+By default each run drops a `logs/scythe_YYYYMMDD_HHMMSS.log` file in
+the current working directory. Use `--no-log-file` for one-off runs in
+sandboxes or CI where you don't want the side effect.
+
 ### `scythe scan` — discover projects and measure artifacts
+
+Walks a directory tree, identifies project roots, and measures the
+artifacts each one is sitting on. Read-only: nothing is ever deleted.
 
 ```bash
 scythe scan .                                  # current directory
@@ -130,11 +153,29 @@ scythe scan ~/dev --older-than 30              # only artifacts older than 30 da
 scythe scan ~/dev --min-size 500MB             # only artifacts at or above 500 MB
 scythe scan ~/dev --format tree                # table | tree | compact | json
 scythe scan ~/dev --format json -o report.json # also csv via .csv suffix
+scythe scan /opt --follow-symlinks             # traverse symlinked dirs
+scythe scan ~/dev --no-artifacts               # hide the artifact detail rows
 ```
 
-`scan` is read-only. It produces a report; nothing is deleted.
+| Flag                  | Type / default                  | Description                                                                                          |
+|-----------------------|---------------------------------|------------------------------------------------------------------------------------------------------|
+| `PATH` (positional)   | path, default `.`               | Directory to scan. Must exist.                                                                       |
+| `--depth, -d`         | int, default `-1` (unbounded)   | Maximum recursion depth. `0` = scan only `PATH`, `1` = `PATH` and its immediate children, etc.       |
+| `--follow-symlinks`   | flag, default off               | Follow symbolic links during traversal. Off by default to avoid loops on system trees.               |
+| `--format`            | `table` \| `tree` \| `compact` \| `json` (default `table`) | How the result is rendered to stdout.                                       |
+| `--output, -o`        | path                            | Also save the report to a file. `.json` → JSON; any other suffix → CSV.                              |
+| `--no-artifacts`      | flag, default off               | Suppress the per-artifact detail rows in `table`/`tree` output (project totals only).                |
+| `--only TYPES`        | comma-separated list            | Restrict to the named ecosystems. Canonical names (`node`, `python`, `rust`, `java_maven`, `java_gradle`, `go`, `ruby`, `dotnet`) and aliases (`py`, `js`, `rs`, `golang`, `.net`, `cs`) both accepted. |
+| `--older-than DAYS`   | int, default `0` (off)          | Keep only artifacts whose `last_modified` is older than `DAYS` days.                                 |
+| `--min-size SIZE`     | size string                     | Keep only artifacts at or above `SIZE`. Accepts raw bytes or human units: `512KB`, `100MB`, `1GB`.   |
 
 ### `scythe clean` — delete detected artifacts
+
+Runs the same scan first, prints a summary, then either prompts
+before deleting or executes immediately depending on flags. By default
+deletion is permanent — files are unlinked, not moved to the OS bin.
+Pass `--trash` to route them through scythe's recoverable trash
+instead, then use `scythe restore` to bring them back.
 
 ```bash
 scythe clean ~/dev --dry-run                   # simulate (always do this first)
@@ -145,36 +186,45 @@ scythe clean ~/dev --older-than 30 --dry-run   # only target stale artifacts
 scythe clean ~/dev --min-size 1GB --dry-run    # only large artifacts worth deleting
 scythe clean ~/dev --force                     # skip the confirmation prompt
 scythe clean ~/dev -o run-report.json          # export a JSON report
+scythe clean ~/dev --depth 2 --follow-symlinks # bound the pre-clean scan
 ```
 
-`clean` runs the same scan first, prints a summary, then either prompts
-before deleting or executes immediately depending on flags.
-
-By default deletion is permanent — files are unlinked, not moved to the
-OS bin. Pass `--trash` to route them through scythe's recoverable trash
-instead, then use `scythe restore` to bring them back.
+| Flag                  | Type / default                  | Description                                                                                                   |
+|-----------------------|---------------------------------|---------------------------------------------------------------------------------------------------------------|
+| `PATH` (positional)   | path, default `.`               | Directory to clean. Must exist.                                                                               |
+| `--dry-run`           | flag, default off               | Simulate the deletion. The summary is rendered, sizes are reported, but nothing is touched. Recommended first.|
+| `--interactive, -i`   | flag, default off               | After the scan, open a manual selector and let you pick which projects to clean.                              |
+| `--force, -f`         | flag, default off               | Skip the "are you sure?" prompt. Useful for scripts and CI.                                                   |
+| `--trash`             | flag, default off               | Move artifacts into scythe's recoverable trash instead of unlinking. Pair with `scythe restore` to undo.      |
+| `--depth, -d`         | int, default `-1` (unbounded)   | Bound the preliminary scan's recursion depth.                                                                 |
+| `--follow-symlinks`   | flag, default off               | Follow symlinks during the preliminary scan.                                                                  |
+| `--only TYPES`        | comma-separated list            | Restrict to the named ecosystems. Same vocabulary as `scan`.                                                  |
+| `--older-than DAYS`   | int, default `0` (off)          | Keep only artifacts older than `DAYS` days.                                                                   |
+| `--min-size SIZE`     | size string                     | Keep only artifacts at or above `SIZE` (`100MB`, `1GB`, …).                                                   |
+| `--output, -o`        | path                            | Save a JSON report of the clean run (artifacts deleted, size freed, errors, skipped).                         |
 
 ### `scythe restore` — undo a `clean --trash` run
 
 ```bash
-scythe restore --list                # show recoverable runs (id, date, items, size)
-scythe restore                       # undo the most recent --trash run
+scythe restore --list                  # show recoverable runs (id, date, items, size)
+scythe restore                         # undo the most recent --trash run
 scythe restore 20260502-153000-123456  # undo a specific run by id
 ```
+
+| Flag / argument        | Description                                                                              |
+|------------------------|------------------------------------------------------------------------------------------|
+| `RUN_ID` (positional)  | Optional. Restore this specific run. Omit to target the most recent recoverable run.     |
+| `--list`               | List recoverable runs (id, date, item count, total size, restored?) and exit.            |
 
 Trashed runs live under the per-user data dir
 (`%LOCALAPPDATA%\scythe` on Windows, `~/Library/Application Support/scythe`
 on macOS, `$XDG_DATA_HOME/scythe` or `~/.local/share/scythe` on Linux).
 A run that's already been restored, has a missing trash payload, or whose
 destination has been re-created since the clean, is reported as *skipped*
-rather than failing.
+rather than failing. OS-level failures during a restore are *errors* and
+exit non-zero.
 
 ### `scythe ui` — interactive TUI
-
-```bash
-scythe ui                                  # current directory
-scythe ui ~/projects                       # specific path
-```
 
 Full-screen alternative to `scan`/`clean` for exploration. Built on
 [Textual](https://textual.textualize.io/), `scythe ui` shows two panes
@@ -183,6 +233,37 @@ the left, and the artifact list of the currently focused project on
 the right. The status header surfaces the running totals
 (`N projects · M/K artifacts · X.YZ GB to free`) so you always know
 what a clean would reclaim.
+
+```bash
+scythe ui                                       # current directory
+scythe ui ~/projects                            # specific path
+scythe ui ~/projects --min-size 100MB           # focus on the heavy hitters
+scythe ui . --only node,python --depth 3       # narrow the scan
+scythe ui ~/dev --older-than 60                 # stale stuff only
+scythe ui . --no-trash                          # delete directly instead of trashing
+```
+
+The scan runs **inside the TUI itself**. The Textual app opens
+immediately with a `Scanning…` chip in the status bar and updates a
+"N dirs · …/path/tail" progress line as directories are walked, on a
+worker thread; the project list populates as soon as the scan
+finishes. There's no Rich progress bar in front of the app anymore —
+on big trees this removes the apparent startup latency.
+
+The same scan filters as `scan`/`clean` are accepted and applied
+before the project list is rendered.
+
+| Flag                  | Type / default                  | Description                                                                                          |
+|-----------------------|---------------------------------|------------------------------------------------------------------------------------------------------|
+| `PATH` (positional)   | path, default `.`               | Directory to scan.                                                                                    |
+| `--depth, -d`         | int, default `-1` (unbounded)   | Bound the recursion depth.                                                                            |
+| `--follow-symlinks`   | flag, default off               | Follow symbolic links during the scan.                                                                |
+| `--only TYPES`        | comma-separated list            | Restrict to the named ecosystems (same vocabulary as `scan`).                                         |
+| `--older-than DAYS`   | int, default `0` (off)          | Keep only artifacts older than `DAYS` days.                                                           |
+| `--min-size SIZE`     | size string                     | Keep only artifacts at or above `SIZE` (`100MB`, `1GB`, …).                                           |
+| `--no-trash`          | flag, default off               | Delete directly when cleaning from the TUI. By default cleans go through the recoverable trash.       |
+
+#### Keybindings
 
 | Key       | Action                                                      |
 |-----------|-------------------------------------------------------------|
@@ -196,16 +277,27 @@ what a clean would reclaim.
 | `u`       | Undo the most recent clean run                              |
 | `q`       | Quit                                                        |
 
-Cleans triggered from the TUI default to **trash mode** — artifacts
-are moved into scythe's recoverable trash dir rather than permanently
-unlinked, and a per-run manifest is written. `u` (or `scythe restore`
-from a regular shell) brings them back. The CLI commands stay
-unchanged for scripts and CI; the TUI is for interactive exploration.
+#### Trash vs. direct delete
+
+By default, cleans triggered from the TUI use **trash mode** —
+artifacts are moved into scythe's recoverable trash dir rather than
+permanently unlinked, and a per-run manifest is written. `u` (or
+`scythe restore` from a regular shell) brings them back. Pass
+`--no-trash` when launching the TUI to delete directly instead; the
+confirmation dialog and the post-clean notification both reflect the
+active mode so you can't mistake one for the other.
+
+The CLI commands stay unchanged for scripts and CI; the TUI is for
+interactive exploration.
 
 ### `scythe info`
 
-Prints the installed version and the list of supported ecosystems and
-patterns.
+Prints the installed version, a short feature summary, and the list of
+supported ecosystems and artifact patterns. Takes no arguments.
+
+```bash
+scythe info
+```
 
 ## Supported ecosystems
 
