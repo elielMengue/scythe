@@ -25,6 +25,14 @@ ARTIFACT_PATTERNS: Dict[ProjectType, List[str]] = {
         '.turbo',
         'coverage'
     ],
+    
+    ProjectType.BUN: [
+        'node_modules',
+        'dist',
+        'build',
+        '.cache',
+        'coverage'
+    ],
 
     ProjectType.PYTHON: [
         '.venv',

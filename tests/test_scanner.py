@@ -47,3 +47,16 @@ def test_scan_complete(test_project_structure):
     assert ProjectType.NODE in project_types
     assert ProjectType.PYTHON in project_types
     assert ProjectType.RUST in project_types
+    
+def test_detect_bun_project(tmp_path):
+    bun_project = tmp_path / "bun-app"
+    bun_project.mkdir()
+
+    (bun_project / "bun.lock").write_text("")
+
+    scanner = DirectoryScanner(tmp_path, -1)
+    result = scanner.scan()
+
+    project_types = [p.project_type for p in result.projects]
+
+    assert ProjectType.BUN in project_types

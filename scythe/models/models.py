@@ -14,6 +14,7 @@ class ProjectType(Enum) :
     """
 
     NODE = "node"
+    BUN = "bun"
     PYTHON = "python"
     RUST = "rust"
     JAVA_MAVEN = "java_maven"
@@ -30,6 +31,7 @@ class ProjectType(Enum) :
     def display_name(self):
         names = {
             ProjectType.NODE : "Node.js",
+            ProjectType.BUN : "Bun",
             ProjectType.PYTHON : "Python",
             ProjectType.RUST : "Rust",
             ProjectType.JAVA_MAVEN : "Java (Maven)",
@@ -52,6 +54,7 @@ class ProjectType(Enum) :
         aliases = {
             "node": cls.NODE,
             "nodejs": cls.NODE,
+            "bun": cls.BUN,
             "js": cls.NODE,
             "python": cls.PYTHON,
             "py": cls.PYTHON,

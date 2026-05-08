@@ -11,7 +11,17 @@ from scythe.logger.logger import get_logger
 from scythe.detector.detector import detect_artifacts
 
 PROJECT_MARKERS = {
-    ProjectType.NODE: ['package.json', 'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml'],
+    ProjectType.NODE: [
+        'package.json',
+        'package-lock.json',
+        'yarn.lock',
+        'pnpm-lock.yaml'
+    ],
+
+    ProjectType.BUN: [
+        'bun.lock',
+        'bun.lockb'
+    ],
     ProjectType.PYTHON: ['requirements.txt', 'setup.py', 'pyproject.toml', 'Pipfile', 'poetry.lock'],
     ProjectType.RUST: ['Cargo.toml', 'Cargo.lock'],
     ProjectType.JAVA_MAVEN: ['pom.xml'],
