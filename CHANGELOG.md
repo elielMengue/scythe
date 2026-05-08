@@ -2,6 +2,71 @@
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-05-08
+
+### Added
+- **`scythe ui` accepts the same scan filters as `scan` and `clean`**:
+  `--depth` / `-d`, `--follow-symlinks`, `--only`, `--older-than`,
+  `--min-size`. Filters are applied to the in-memory `ScanResult`
+  before the project list renders, so the TUI starts focused on
+  exactly what you'd see from `scythe scan` with the same flags.
+- **`scythe ui --no-trash`** — opt out of trash mode for cleans
+  triggered from the TUI. With this flag, `c` deletes artifacts
+  directly via `ArtifactCleaner` instead of routing through
+  `TrashMover`. The confirmation dialog and the post-clean notification
+  both reflect the active mode so the two paths are unambiguous.
+
+### Changed
+- **TUI launches immediately**: `scythe ui` no longer runs the Rich
+  progress bar before opening the Textual app. The scan is now driven
+  by a Textual `@work` thread; the header shows a `Scanning…` chip and
+  a per-directory progress line via `call_from_thread`, and the
+  project list populates when the worker finishes. On large trees this
+  removes the apparent startup latency. The CLI signature for `ui` is
+  unchanged.
+
+### Documentation
+- README: new **Global options** subsection (`--verbose`, `--no-log-file`,
+  `--version`, `--help`) and per-command **Flags** tables for `scan`,
+  `clean`, `restore`, and `ui`. Every flag is now documented with its
+  type, default, and behavior; previously undocumented options
+  (`--follow-symlinks` on `scan`/`clean`/`ui`, `--no-artifacts` on
+  `scan`, `--depth` on `clean`) are now listed. The `scythe ui` section
+  was rewritten to cover the new flags, the in-app worker-driven scan,
+  and a dedicated "Trash vs. direct delete" paragraph.
+
+### Technical
+- Release v0.7.1.
+
+## [0.7.0] - 2026-05-04
+
+### Added
+- **`scythe ui` — interactive TUI mode** (Textual). Full-screen
+  alternative to `scan`/`clean` for exploration. Two side-by-side
+  panes: a project list on the left (sortable by size · newest · type
+  · path, filterable by substring) and the artifact list of the
+  focused project on the right. The header surfaces running totals
+  (`N projects · M/K artifacts · X.YZ GB to free`).
+  - `space` toggles the row under the cursor (a project, full or
+    partial; or a single artifact); `a` toggles every artifact.
+  - `Tab` switches focus between panes.
+  - `s` cycles sort modes; `/` opens a filter input (Esc to close).
+  - `c` runs the selected artifacts through `ArtifactCleaner` in
+    **trash mode** (recoverable) after a confirmation modal; `u`
+    restores the most recent run.
+  - The CLI gains a `scythe ui [PATH]` subcommand. Textual is loaded
+    lazily so non-TUI commands keep their cold-start time.
+- New `scythe.tui` package (`ScytheApp`, `run_tui`,
+  `ConfirmCleanScreen`). Twelve Pilot-driven smoke and interaction
+  tests cover boot, the empty case, default selection, project- and
+  artifact-level toggles (with partial-state assertion), toggle-all,
+  sort cycling and ordering, filter narrowing, confirm-and-trash on a
+  real on-disk artifact, cancel, and undo with no runs.
+
+### Changed
+- `.gitignore` broadened to exclude `__pycache__/`, `*.pyc`, `*.pyo`,
+  `.pytest_cache/`, and `.pytest_tmp/`.
+
 ## [0.6.1] - 2026-05-03
 
 ### Changed

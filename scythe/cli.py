@@ -745,6 +745,67 @@ def restore(ctx, run_id, list_only):
 
 
 @cli.command()
+@click.argument('path', type=click.Path(exists=True), default='.', metavar='[PATH]')
+@click.option('--depth', '-d', type=int, default=-1, metavar='N', show_default=True,
+              help='Maximal depth of scan')
+@click.option('--follow-symlinks', is_flag=True, help='Follow symbolic links during scan')
+@click.option('--only', type=str, default=None, metavar='TYPES',
+              help='Comma-separated project types to keep (e.g. node,python,rust)')
+@click.option('--older-than', type=int, default=0, metavar='DAYS',
+              help='Only keep artifacts whose last_modified is older than DAYS days')
+@click.option('--min-size', type=str, default=None, metavar='SIZE',
+              help='Only keep artifacts at or above SIZE (e.g. 100MB, 1GB, 512KB)')
+@click.option('--no-trash', is_flag=True,
+              help='Delete artifacts directly instead of moving them to scythe trash.')
+@click.pass_context
+def ui(ctx, path, depth, follow_symlinks, only, older_than, min_size, no_trash):
+    """
+        Launch the interactive TUI for browsing and cleaning artifacts.
+
+        Full-screen alternative to `scan`/`clean` for exploration: filter,
+        sort, toggle items, and trigger a recoverable clean — all without
+        leaving the terminal.
+
+        \b
+        Arguments:
+            PATH    Directory to scan (default: current directory)
+
+        \b
+        Examples:
+            scythe ui                                # current directory
+            scythe ui ~/projects --min-size 100MB    # focus on big artifacts
+            scythe ui . --only node,python -d 3      # narrow scan
+
+        \b
+        Notes:
+            • The TUI scans up-front and caches the result in memory.
+            • Cleanups triggered from the TUI default to --trash; undo
+              with the in-app shortcut or `scythe restore` from the CLI.
+              Pass --no-trash to delete directly instead.
+    """
+    from scythe.tui import run_tui
+
+    logger = ctx.obj["logger"]
+    scan_path = Path(path).resolve()
+    only_types = _parse_only_filter(only)
+    min_size_bytes = _parse_min_size(min_size)
+
+    logger.info(f"Launching TUI for: {scan_path}")
+
+    run_tui(
+        scan_path=scan_path,
+        scan_options={
+            "depth": depth,
+            "follow_symlinks": follow_symlinks,
+            "only_types": only_types,
+            "older_than": older_than,
+            "min_size_bytes": min_size_bytes,
+        },
+        use_trash=not no_trash,
+    )
+
+
+@cli.command()
 @click.pass_context
 def info(ctx):
     console = ctx.obj["console"]
