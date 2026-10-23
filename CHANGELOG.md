@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed
+- **Scanner no longer descends into detected artifact directories.**
+  Packages inside `node_modules` (or `.venv`, `target/`, …) that ship
+  their own marker files were reported as separate projects, their
+  `dist/` folders were flagged as artifacts, and their size was counted
+  twice — inflating the `scan` total and the `clean --dry-run` estimate.
+
 ## [0.7.1] - 2026-05-08
 
 ### Added

@@ -155,6 +155,7 @@ class DirectoryScanner :
             self.progress_callback(f"Scanning {directory}")
 
         project_type = self.detect_project_type(directory)
+        artifact_paths = set()
 
         if project_type:
             self.logger.debug(f"Found project type {project_type.display_name} detected in : {directory}")
@@ -172,6 +173,9 @@ class DirectoryScanner :
                 artifacts=artifacts
             )
             projects.append(project)
+            # Don't descend into artifacts: their content (e.g. packages in
+            # node_modules) is already counted and is not the user's projects.
+            artifact_paths = {a.path for a in artifacts}
 
             if artifacts:
                 total_size = sum(a.size_bytes for a in artifacts)
@@ -184,7 +188,7 @@ class DirectoryScanner :
         try:
             for item in directory.iterdir():
                 if item.is_dir():
-                    if not is_ignored_path(item, self.custom_ignores):
+                    if item not in artifact_paths and not is_ignored_path(item, self.custom_ignores):
                         sub_projects = self._scan_recursive(item, depth+1, parent_has_artifacts=parent_has_artifacts)
                         projects.extend(sub_projects)
                 elif item.is_file():

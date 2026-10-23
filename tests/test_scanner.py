@@ -60,3 +60,22 @@ def test_detect_bun_project(tmp_path):
     project_types = [p.project_type for p in result.projects]
 
     assert ProjectType.BUN in project_types
+
+
+def test_scan_does_not_descend_into_artifacts(tmp_path):
+    app = tmp_path / "app"
+    app.mkdir()
+    (app / "package.json").write_text('{"name": "app"}')
+
+    package = app / "node_modules" / "left-pad"
+    (package / "dist").mkdir(parents=True)
+    (package / "package.json").write_text('{"name": "left-pad"}')
+    (package / "dist" / "index.js").write_bytes(b"x" * 1000)
+
+    result = scan_directory(tmp_path)
+
+    assert result.total_projects == 1
+    project = result.projects[0]
+    assert project.path == app
+    assert [a.path for a in project.artifacts] == [app / "node_modules"]
+    assert result.total_artifacts_size == project.total_artifact_size
